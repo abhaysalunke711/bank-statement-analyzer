@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Bank Statements - Bank Statement Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Hero Section -->
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-primary mb-3">
+                <i class="fas fa-file-invoice-dollar"></i>
+                Bank Statement Analyzer
+            </h1>
+            <p class="lead text-muted">
+                Upload your PDF bank statements and get intelligent analysis with category-wise breakdowns, 
+                monthly summaries, and beautiful visualizations.
+            </p>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="card mb-5">
+            <div class="card-body">
+                <h3 class="card-title text-center mb-4">
+                    <i class="fas fa-cloud-upload-alt text-primary"></i>
+                    Upload Bank Statement PDFs
+                </h3>
+                
+                <form action="{{ url_for('upload_files') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-content">
+                            <i class="fas fa-file-pdf fa-3x text-primary mb-3"></i>
+                            <h5>Drag & Drop PDF files here</h5>
+                            <p class="text-muted">or click to browse</p>
+                            <input type="file" name="files" id="fileInput" multiple accept=".pdf" class="d-none">
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-folder-open me-2"></i>
+                                Browse Files
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Selected Files Display -->
+                    <div id="selectedFiles" class="mt-3" style="display: none;">
+                        <h6>Selected Files:</h6>
+                        <div id="fileList" class="list-group"></div>
+                    </div>
+                    
+                    <!-- Upload Button -->
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-success btn-lg" id="uploadBtn" disabled>
+                            <i class="fas fa-analytics me-2"></i>
+                            Analyze Bank Statements
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="row mb-5">
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="fas fa-tags"></i>
+                </div>
+                <h5>Smart Categorization</h5>
+                <p class="text-muted">Automatically categorizes transactions into Food, Shopping, Transportation, and more.</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <h5>Monthly Organization</h5>
+                <p class="text-muted">Organizes your data by month with separate tabs for easy analysis.</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h5>Visual Reports</h5>
+                <p class="text-muted">Generates charts and comprehensive Excel reports with summaries.</p>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle text-info"></i>
+                    How to Use
+                </h5>
+                <ol class="mb-0">
+                    <li><strong>Upload PDFs:</strong> Select one or more bank statement PDF files</li>
+                    <li><strong>Automatic Processing:</strong> The system extracts and categorizes all transactions</li>
+                    <li><strong>Monthly Reports:</strong> Get Excel files with separate tabs for each month</li>
+                    <li><strong>Download Results:</strong> Access your organized financial data and charts</li>
+                </ol>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt"></i>
+                        <strong>Privacy:</strong> All files are processed locally and deleted after analysis.
+                        Maximum file size: 16MB per file.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const selectedFiles = document.getElementById('selectedFiles');
+    const fileList = document.getElementById('fileList');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    
+    let files = [];
+    
+    // Click to select files
+    uploadArea.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        handleFiles(droppedFiles);
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', function() {
+        const selectedFiles = Array.from(fileInput.files);
+        handleFiles(selectedFiles);
+    });
+    
+    function handleFiles(newFiles) {
+        // Filter PDF files only
+        const pdfFiles = newFiles.filter(file => file.type === 'application/pdf');
+        
+        if (pdfFiles.length !== newFiles.length) {
+            alert('Only PDF files are allowed. Non-PDF files have been filtered out.');
+        }
+        
+        files = pdfFiles;
+        displaySelectedFiles();
+        updateUploadButton();
+    }
+    
+    function displaySelectedFiles() {
+        if (files.length === 0) {
+            selectedFiles.style.display = 'none';
+            return;
+        }
+        
+        selectedFiles.style.display = 'block';
+        fileList.innerHTML = '';
+        
+        files.forEach((file, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            fileItem.innerHTML = `
+                <div>
+                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                    <strong>${file.name}</strong>
+                    <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            fileList.appendChild(fileItem);
+        });
+    }
+    
+    function updateUploadButton() {
+        uploadBtn.disabled = files.length === 0;
+        
+        if (files.length > 0) {
+            uploadBtn.innerHTML = `
+                <i class="fas fa-analytics me-2"></i>
+                Analyze ${files.length} File${files.length > 1 ? 's' : ''}
+            `;
+        } else {
+            uploadBtn.innerHTML = `
+                <i class="fas fa-analytics me-2"></i>
+                Analyze Bank Statements
+            `;
+        }
+    }
+    
+    window.removeFile = function(index) {
+        files.splice(index, 1);
+        displaySelectedFiles();
+        updateUploadButton();
+        
+        // Update file input
+        const dt = new DataTransfer();
+        files.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+    };
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // Form submission with progress
+    uploadForm.addEventListener('submit', function(e) {
+        if (files.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one PDF file.');
+            return;
+        }
+        
+        // Update file input with current files
+        const dt = new DataTransfer();
+        files.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+        
+        // Show loading state
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Processing...
+        `;
+        
+        // Create progress indicator
+        const progressDiv = document.createElement('div');
+        progressDiv.className = 'mt-3';
+        progressDiv.innerHTML = `
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+            </div>
+            <small class="text-muted mt-2 d-block">
+                <i class="fas fa-cog fa-spin me-1"></i>
+                Extracting text from PDFs, categorizing transactions, and generating reports...
+            </small>
+        `;
+        uploadBtn.parentNode.appendChild(progressDiv);
+    });
+});
+</script>
+{% endblock %}

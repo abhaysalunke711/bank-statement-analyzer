@@ -1,0 +1,52 @@
+{
+  "Food & Dining": {
+    "exact": ["restaurant", "cafe", "pizza", "mcdonald", "starbucks", "subway", "kfc", "burger king", "taco bell", "domino", "papa john", "chipotle", "panera", "dunkin", "tim horton"],
+    "fuzzy": ["dining", "food", "lunch", "dinner", "breakfast", "meal", "eat", "kitchen", "grill", "bistro"],
+    "regex": [".*restaurant.*", ".*cafe.*", ".*pizza.*", ".*food.*"]
+  },
+  "Transportation": {
+    "exact": ["gas", "fuel", "uber", "lyft", "taxi", "parking", "shell", "exxon", "bp", "chevron", "mobil", "citgo", "sunoco", "speedway"],
+    "fuzzy": ["transport", "travel", "gas station", "fuel station", "ride share"],
+    "regex": [".*gas.*station.*", ".*parking.*", ".*fuel.*", ".*transport.*"]
+  },
+  "Shopping": {
+    "exact": ["amazon", "walmart", "target", "costco", "mall", "ebay", "best buy", "home depot", "lowes", "macys", "nordstrom", "tj maxx", "marshalls", "kohls"],
+    "fuzzy": ["shopping", "store", "retail", "purchase", "buy"],
+    "regex": [".*shop.*", ".*store.*", ".*retail.*", ".*mall.*"]
+  },
+  "Utilities": {
+    "exact": ["electric", "water", "gas bill", "internet", "phone", "cable", "verizon", "at&t", "comcast", "spectrum", "cox", "xfinity", "directv"],
+    "fuzzy": ["utility", "bill", "electric company", "water dept", "phone bill", "internet service"],
+    "regex": [".*electric.*company.*", ".*water.*dept.*", ".*utility.*", ".*telecom.*"]
+  },
+  "Healthcare": {
+    "exact": ["hospital", "pharmacy", "doctor", "medical", "cvs", "walgreens", "rite aid", "clinic", "dentist", "urgent care"],
+    "fuzzy": ["health", "medical", "medicine", "prescription", "dental", "vision"],
+    "regex": [".*medical.*", ".*pharmacy.*", ".*health.*", ".*clinic.*"]
+  },
+  "Entertainment": {
+    "exact": ["netflix", "spotify", "hulu", "disney", "amazon prime", "apple music", "youtube", "movie", "theater", "cinema", "concert", "ticket"],
+    "fuzzy": ["entertainment", "streaming", "music", "video", "game", "movie theater"],
+    "regex": [".*entertainment.*", ".*streaming.*", ".*music.*", ".*movie.*"]
+  },
+  "Banking & Finance": {
+    "exact": ["bank", "atm", "fee", "interest", "transfer", "deposit", "withdrawal", "overdraft", "maintenance"],
+    "fuzzy": ["banking", "finance", "loan", "credit", "investment"],
+    "regex": [".*bank.*fee.*", ".*atm.*", ".*transfer.*", ".*interest.*"]
+  },
+  "Insurance": {
+    "exact": ["insurance", "premium", "policy", "geico", "state farm", "allstate", "progressive", "usaa", "liberty mutual"],
+    "fuzzy": ["auto insurance", "health insurance", "life insurance", "home insurance"],
+    "regex": [".*insurance.*", ".*premium.*", ".*policy.*"]
+  },
+  "Home & Garden": {
+    "exact": ["rent", "mortgage", "lease", "property", "lawn", "garden", "hardware", "repair", "maintenance", "cleaning"],
+    "fuzzy": ["home improvement", "house", "apartment", "rental", "gardening"],
+    "regex": [".*rent.*", ".*mortgage.*", ".*home.*", ".*house.*"]
+  },
+  "Education": {
+    "exact": ["school", "university", "college", "tuition", "textbook", "student", "education", "course", "class"],
+    "fuzzy": ["learning", "academic", "educational", "training"],
+    "regex": [".*school.*", ".*university.*", ".*education.*", ".*tuition.*"]
+  }
+}

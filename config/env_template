@@ -1,0 +1,18 @@
+# Google Sheets Configuration Template
+# Copy this file to .env and fill in your values
+
+# Google Sheets API Configuration
+GOOGLE_SHEETS_CREDENTIALS_PATH=config/credentials.json
+GOOGLE_SERVICE_ACCOUNT_PATH=config/service_account.json
+
+# Default Spreadsheet Settings
+DEFAULT_SHEET_TITLE=Bank Statement Analysis
+INCLUDE_SOURCE_FILE=true
+
+# PDF Processing Settings
+PDF_EXTRACTION_METHOD=pdfplumber
+FUZZY_MATCH_THRESHOLD=0.8
+
+# Logging Settings
+LOG_LEVEL=INFO
+LOG_TO_FILE=true

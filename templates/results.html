@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results - Bank Statement Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Success Header -->
+        <div class="text-center mb-5">
+            <div class="display-1 text-success mb-3">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h1 class="display-4 fw-bold text-primary">Analysis Complete!</h1>
+            <p class="lead text-muted">
+                Successfully processed {{ results.total_transactions }} transactions 
+                from {{ results.uploaded_files|length }} file{{ 's' if results.uploaded_files|length > 1 else '' }}
+            </p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-5">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card text-center">
+                    <i class="fas fa-receipt fa-2x mb-2"></i>
+                    <h3 class="fw-bold">{{ results.total_transactions }}</h3>
+                    <p class="mb-0">Total Transactions</p>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card text-center">
+                    <i class="fas fa-tags fa-2x mb-2"></i>
+                    <h3 class="fw-bold">{{ results.categories_found }}</h3>
+                    <p class="mb-0">Categories Found</p>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card text-center">
+                    <i class="fas fa-file-pdf fa-2x mb-2"></i>
+                    <h3 class="fw-bold">{{ results.uploaded_files|length }}</h3>
+                    <p class="mb-0">PDF Files Processed</p>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card text-center">
+                    <i class="fas fa-file-excel fa-2x mb-2"></i>
+                    <h3 class="fw-bold">1</h3>
+                    <p class="mb-0">Excel Report Generated</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div class="card mb-5">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-download me-2"></i>
+                    Download Your Reports
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Monthly Excel Report -->
+                    {% if results.excel_path %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Monthly Excel Report</h5>
+                                <p class="card-text text-muted">
+                                    Complete analysis with separate tabs for each month, 
+                                    category summaries, and detailed transaction lists.
+                                </p>
+                                <a href="{{ url_for('download_file', filename=results.excel_path.split('/')[-1]) }}" 
+                                   class="btn btn-success">
+                                    <i class="fas fa-download me-2"></i>
+                                    Download Excel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- CSV Backup -->
+                    {% if results.csv_path %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-info">
+                            <div class="card-body text-center">
+                                <i class="fas fa-file-csv fa-3x text-info mb-3"></i>
+                                <h5 class="card-title">CSV Backup</h5>
+                                <p class="card-text text-muted">
+                                    Simple CSV file with all transactions for compatibility 
+                                    with other applications.
+                                </p>
+                                <a href="{{ url_for('download_file', filename=results.csv_path.split('/')[-1]) }}" 
+                                   class="btn btn-info">
+                                    <i class="fas fa-download me-2"></i>
+                                    Download CSV
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Additional Reports -->
+                {% if results.report_files %}
+                <hr>
+                <h6 class="text-muted mb-3">Additional Reports & Charts:</h6>
+                <div class="row">
+                    {% for report_type, file_path in results.report_files.items() %}
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('download_file', filename=file_path.split('/')[-1]) }}" 
+                           class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fas fa-{{ 'chart-bar' if 'chart' in report_type else 'file-alt' }} me-1"></i>
+                            {{ report_type.replace('_', ' ').title() }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Processed Files -->
+        <div class="card mb-5">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-pdf me-2"></i>
+                    Processed Files
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for filename in results.uploaded_files %}
+                    <div class="col-md-6 mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file-pdf text-danger me-2"></i>
+                            <span class="text-truncate">{{ filename }}</span>
+                            <i class="fas fa-check-circle text-success ms-auto"></i>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- What's Inside the Excel Report -->
+        <div class="card mb-5">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    What's Inside Your Excel Report
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-pie text-primary me-2"></i>Summary Tab</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li><i class="fas fa-check text-success me-1"></i> Overall financial summary</li>
+                            <li><i class="fas fa-check text-success me-1"></i> Monthly breakdown</li>
+                            <li><i class="fas fa-check text-success me-1"></i> Income vs expenses</li>
+                            <li><i class="fas fa-check text-success me-1"></i> Transaction counts</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-calendar-alt text-warning me-2"></i>Monthly Tabs</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li><i class="fas fa-check text-success me-1"></i> Separate tab for each month</li>
+                            <li><i class="fas fa-check text-success me-1"></i> Category-wise summaries</li>
+                            <li><i class="fas fa-check text-success me-1"></i> Detailed transaction lists</li>
+                            <li><i class="fas fa-check text-success me-1"></i> Professional formatting</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Steps -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Next Steps
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
+                        <h6>Open Excel Report</h6>
+                        <p class="text-muted small">
+                            Open the Excel file to explore your monthly financial data with organized tabs.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-chart-bar fa-2x text-info mb-2"></i>
+                        <p class="text-muted small">
+                            View the generated charts to visualize your spending patterns by category.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-upload fa-2x text-primary mb-2"></i>
+                        <h6>Process More Files</h6>
+                        <p class="text-muted small">
+                            Upload additional bank statements to continue building your financial overview.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary me-3">
+                        <i class="fas fa-upload me-2"></i>
+                        Upload More Files
+                    </a>
+                    <a href="{{ url_for('clear_uploads') }}" class="btn btn-outline-secondary" 
+                       onclick="return confirm('This will clear all uploaded files. Continue?')">
+                        <i class="fas fa-trash me-2"></i>
+                        Clear & Start Over
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh page if processing is still ongoing
+document.addEventListener('DOMContentLoaded', function() {
+    // Add some nice animations
+    const cards = document.querySelectorAll('.card');
+    cards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'all 0.5s ease';
+            
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100);
+        }, index * 100);
+    });
+});
+</script>
+{% endblock %}
