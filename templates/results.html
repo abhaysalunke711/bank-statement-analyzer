@@ -49,6 +49,53 @@
             </div>
         </div>
 
+        <!-- Excel Viewer Section -->
+        {% if results.excel_html %}
+        <div class="card mb-5">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-table me-2"></i>
+                    Excel Report Viewer
+                    {% if results.excel_stats %}
+                    <span class="badge bg-light text-dark ms-2">
+                        {{ results.excel_stats.total_sheets }} sheets
+                    </span>
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Excel Statistics -->
+                {% if results.excel_stats and results.excel_stats.sheets_info %}
+                <div class="row mb-4">
+                    {% for sheet in results.excel_stats.sheets_info %}
+                    {% if sheet.is_summary %}
+                    <div class="col-md-4">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-success">Financial Summary</h6>
+                                {% if sheet.total_income %}
+                                <p class="mb-1"><strong>Income:</strong> {{ sheet.total_income }}</p>
+                                {% endif %}
+                                {% if sheet.total_expenses %}
+                                <p class="mb-1"><strong>Expenses:</strong> {{ sheet.total_expenses }}</p>
+                                {% endif %}
+                                {% if sheet.net_amount %}
+                                <p class="mb-0"><strong>Net:</strong> {{ sheet.net_amount }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <!-- Excel Tables -->
+                {{ results.excel_html|safe }}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Download Section -->
         <div class="card mb-5">
             <div class="card-header bg-primary text-white">
@@ -227,9 +274,197 @@
 
 {% block extra_js %}
 <script>
-// Auto-refresh page if processing is still ongoing
 document.addEventListener('DOMContentLoaded', function() {
-    // Add some nice animations
+    // Initialize tooltips for truncated text
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Add search functionality to tables
+    addTableSearch();
+    
+    // Add export functionality
+    addExportButtons();
+    
+    // Add animations
+    animateCards();
+    
+    // Add table enhancements
+    enhanceTables();
+});
+
+function addTableSearch() {
+    // Add search boxes to each table
+    const tables = document.querySelectorAll('.table-responsive table');
+    tables.forEach((table, index) => {
+        const tableContainer = table.closest('.table-responsive');
+        const searchContainer = document.createElement('div');
+        searchContainer.className = 'mb-3';
+        searchContainer.innerHTML = `
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" class="form-control" placeholder="Search in table..." 
+                       onkeyup="filterTable(this, ${index})">
+                <button class="btn btn-outline-secondary" type="button" onclick="clearSearch(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        tableContainer.parentNode.insertBefore(searchContainer, tableContainer);
+    });
+}
+
+function filterTable(input, tableIndex) {
+    const filter = input.value.toLowerCase();
+    const table = document.querySelectorAll('.table-responsive table')[tableIndex];
+    const rows = table.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+    
+    // Update row count
+    const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none').length;
+    updateRowCount(tableIndex, visibleRows, rows.length);
+}
+
+function clearSearch(tableIndex) {
+    const input = document.querySelectorAll('input[placeholder="Search in table..."]')[tableIndex];
+    input.value = '';
+    filterTable(input, tableIndex);
+}
+
+function updateRowCount(tableIndex, visible, total) {
+    // Find or create row count display
+    const table = document.querySelectorAll('.table-responsive table')[tableIndex];
+    const container = table.closest('.card-body');
+    let countDisplay = container.querySelector('.row-count');
+    
+    if (!countDisplay) {
+        countDisplay = document.createElement('div');
+        countDisplay.className = 'row-count text-muted small mt-2';
+        container.appendChild(countDisplay);
+    }
+    
+    countDisplay.textContent = visible === total ? 
+        `Showing all ${total} rows` : 
+        `Showing ${visible} of ${total} rows`;
+}
+
+function addExportButtons() {
+    // Add export buttons to each tab
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    tabPanes.forEach((pane, index) => {
+        const cardHeader = pane.querySelector('.card-header h5');
+        if (cardHeader) {
+            const exportBtn = document.createElement('button');
+            exportBtn.className = 'btn btn-sm btn-outline-light ms-2';
+            exportBtn.innerHTML = '<i class="fas fa-download me-1"></i>Export CSV';
+            exportBtn.onclick = () => exportTableToCSV(index);
+            cardHeader.appendChild(exportBtn);
+        }
+    });
+}
+
+function exportTableToCSV(tableIndex) {
+    const table = document.querySelectorAll('.table-responsive table')[tableIndex];
+    const sheetName = document.querySelectorAll('.tab-pane .card-header h5')[tableIndex].textContent.trim();
+    
+    let csv = [];
+    
+    // Headers
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    csv.push(headers.join(','));
+    
+    // Rows
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const cells = Array.from(row.querySelectorAll('td')).map(td => {
+                let text = td.textContent.trim();
+                // Clean up formatted text
+                text = text.replace(/[""]/g, '""'); // Escape quotes
+                return `"${text}"`; // Wrap in quotes
+            });
+            csv.push(cells.join(','));
+        }
+    });
+    
+    // Download
+    const blob = new Blob([csv.join('\\n')], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sheetName.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function enhanceTables() {
+    // Add hover effects and click handlers
+    const tables = document.querySelectorAll('.table tbody tr');
+    tables.forEach(row => {
+        row.addEventListener('click', function() {
+            // Remove previous selection
+            this.closest('tbody').querySelectorAll('tr').forEach(r => r.classList.remove('table-info'));
+            // Add selection to current row
+            this.classList.add('table-info');
+        });
+    });
+    
+    // Add column sorting
+    const headers = document.querySelectorAll('.table thead th');
+    headers.forEach((header, index) => {
+        header.style.cursor = 'pointer';
+        header.innerHTML += ' <i class="fas fa-sort text-muted ms-1"></i>';
+        header.addEventListener('click', () => sortTable(header, index));
+    });
+}
+
+function sortTable(header, columnIndex) {
+    const table = header.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Determine sort direction
+    const isAscending = !header.classList.contains('sort-desc');
+    
+    // Reset all headers
+    table.querySelectorAll('th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        th.querySelector('i').className = 'fas fa-sort text-muted ms-1';
+    });
+    
+    // Set current header
+    header.classList.add(isAscending ? 'sort-asc' : 'sort-desc');
+    header.querySelector('i').className = `fas fa-sort-${isAscending ? 'up' : 'down'} text-primary ms-1`;
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].textContent.trim();
+        const bText = b.cells[columnIndex].textContent.trim();
+        
+        // Try numeric sort first
+        const aNum = parseFloat(aText.replace(/[$,]/g, ''));
+        const bNum = parseFloat(bText.replace(/[$,]/g, ''));
+        
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            return isAscending ? aNum - bNum : bNum - aNum;
+        }
+        
+        // Fallback to text sort
+        return isAscending ? aText.localeCompare(bText) : bText.localeCompare(aText);
+    });
+    
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+function animateCards() {
     const cards = document.querySelectorAll('.card');
     cards.forEach((card, index) => {
         setTimeout(() => {
@@ -243,6 +478,62 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         }, index * 100);
     });
-});
+}
 </script>
+
+<style>
+/* Enhanced table styling */
+.table th {
+    position: sticky;
+    top: 0;
+    background: var(--bs-dark) !important;
+    z-index: 10;
+}
+
+.table tbody tr:hover {
+    background-color: var(--bs-light) !important;
+}
+
+.table tbody tr.table-info {
+    background-color: var(--bs-info) !important;
+    color: white;
+}
+
+.tab-content {
+    min-height: 400px;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+/* Loading animation for tables */
+.table-responsive {
+    position: relative;
+}
+
+.table-responsive.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .badge {
+        font-size: 0.65em;
+    }
+}
+</style>
 {% endblock %}

@@ -17,6 +17,7 @@ sys.path.append('src')
 from main import BankStatementAnalyzer
 from enhanced_pdf_reader import EnhancedPDFReader
 from monthly_report_generator import MonthlyReportGenerator
+from excel_viewer import ExcelViewer
 
 app = Flask(__name__)
 app.secret_key = 'bank_analyzer_secret_key_2024'  # Change this in production
@@ -123,8 +124,23 @@ def upload_files():
         # Create monthly Excel report
         excel_path = monthly_generator.create_monthly_excel_report(categorized_transactions)
         
+        # Generate Excel viewer data for browser display
+        excel_viewer = ExcelViewer()
+        excel_data = {}
+        excel_stats = {}
+        
+        if excel_path and os.path.exists(excel_path):
+            excel_data = excel_viewer.read_excel_file(excel_path)
+            excel_stats = excel_viewer.get_summary_stats(excel_data)
+            excel_html = excel_viewer.generate_html_tables(excel_data)
+        else:
+            excel_html = "<p class='text-muted'>Excel file not available</p>"
+        
         # Prepare results for display
         results['excel_path'] = excel_path
+        results['excel_data'] = excel_data
+        results['excel_stats'] = excel_stats
+        results['excel_html'] = excel_html
         results['uploaded_files'] = [os.path.basename(f) for f in uploaded_files]
         
         flash(f'Successfully processed {results["total_transactions"]} transactions from {len(uploaded_files)} files', 'success')
