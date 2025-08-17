@@ -18,6 +18,7 @@ from main import BankStatementAnalyzer
 from enhanced_pdf_reader import EnhancedPDFReader
 from monthly_report_generator import MonthlyReportGenerator
 from enhanced_monthly_report_generator import EnhancedMonthlyReportGenerator
+from pivot_monthly_report_generator import PivotMonthlyReportGenerator
 from excel_viewer import ExcelViewer
 
 app = Flask(__name__)
@@ -97,6 +98,7 @@ def upload_files():
         analyzer = BankStatementAnalyzer(data_dir=UPLOAD_FOLDER)
         monthly_generator = MonthlyReportGenerator()
         enhanced_generator = EnhancedMonthlyReportGenerator()
+        pivot_generator = PivotMonthlyReportGenerator()
         
         # Run analysis
         results = analyzer.run_analysis(
@@ -123,8 +125,8 @@ def upload_files():
         # Categorize transactions
         categorized_transactions = analyzer.keyword_matcher.batch_categorize(transactions)
         
-        # Create enhanced monthly Excel report with color coding
-        excel_path = enhanced_generator.create_monthly_excel_report(categorized_transactions)
+        # Create pivot-style Excel report with color coding
+        excel_path = pivot_generator.create_pivot_excel_report(categorized_transactions)
         
         # Generate Excel viewer data for browser display
         excel_viewer = ExcelViewer()

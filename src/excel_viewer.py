@@ -131,7 +131,13 @@ class ExcelViewer:
         sheet_name_lower = sheet_name.lower()
         headers_lower = [h.lower() for h in headers]
         
-        if 'summary' in sheet_name_lower:
+        # Check for pivot-style layout
+        if ('financial summary' in sheet_name_lower or 
+            (len(headers) > 3 and any(month in ' '.join(headers_lower) for month in 
+             ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']) and
+             'total' in ' '.join(headers_lower))):
+            return 'pivot'
+        elif 'summary' in sheet_name_lower:
             return 'summary'
         elif any(month in sheet_name_lower for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 
                                                         'jul', 'aug', 'sep', 'oct', 'nov', 'dec']):
@@ -198,6 +204,7 @@ class ExcelViewer:
             
             # Choose icon based on sheet type
             icon = {
+                'pivot': 'fas fa-table',
                 'summary': 'fas fa-chart-pie',
                 'monthly': 'fas fa-calendar-alt',
                 'transactions': 'fas fa-list',
@@ -344,8 +351,24 @@ class ExcelViewer:
         if 'date' in header_lower and '/' in str(cell):
             return f'<span class="text-nowrap">{cell}</span>'
         
-        # Format categories with badges
+        # Format categories with badges and special handling for pivot layout
         if 'category' in header_lower and cell != 'Uncategorized':
+            # Special formatting for pivot section headers
+            if cell in ['💰 INCOME', '💸 EXPENSES']:
+                if '💰' in cell:
+                    return f'<span class="badge bg-success fs-6 py-2 px-3"><i class="fas fa-arrow-up me-2"></i>{cell}</span>'
+                else:
+                    return f'<span class="badge bg-danger fs-6 py-2 px-3"><i class="fas fa-arrow-down me-2"></i>{cell}</span>'
+            
+            # Special formatting for total rows
+            if 'TOTAL' in cell.upper():
+                if 'INCOME' in cell.upper():
+                    return f'<span class="badge bg-success fw-bold py-2 px-3">{cell}</span>'
+                elif 'EXPENSE' in cell.upper():
+                    return f'<span class="badge bg-danger fw-bold py-2 px-3">{cell}</span>'
+                elif 'NET' in cell.upper():
+                    return f'<span class="badge bg-primary fw-bold py-2 px-3">{cell}</span>'
+            
             badge_colors = {
                 'Food & Dining': 'bg-warning',
                 'Shopping': 'bg-info',
@@ -353,7 +376,11 @@ class ExcelViewer:
                 'Entertainment': 'bg-success',
                 'Utilities': 'bg-secondary',
                 'Healthcare': 'bg-danger',
-                'Banking & Finance': 'bg-dark'
+                'Banking & Finance': 'bg-dark',
+                'Salary': 'bg-success',
+                'Investment': 'bg-info',
+                'Government': 'bg-primary',
+                'Business Income': 'bg-success'
             }
             color = badge_colors.get(cell, 'bg-light text-dark')
             return f'<span class="badge {color}">{cell}</span>'
