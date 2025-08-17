@@ -213,9 +213,9 @@ class MonthlyReportGenerator:
         total_transactions = sum(len(transactions) for transactions in monthly_data.values())
         all_transactions = [t for transactions in monthly_data.values() for t in transactions]
         
-        total_income = sum(self._clean_amount(t.get('amount', 0)) for t in all_transactions if self._clean_amount(t.get('amount', 0)) > 0)
-        total_expenses = abs(sum(self._clean_amount(t.get('amount', 0)) for t in all_transactions if self._clean_amount(t.get('amount', 0)) < 0))
-        net_amount = total_income - total_expenses
+        total_income = round(sum(self._clean_amount(t.get('amount', 0)) for t in all_transactions if self._clean_amount(t.get('amount', 0)) > 0), 2)
+        total_expenses = round(abs(sum(self._clean_amount(t.get('amount', 0)) for t in all_transactions if self._clean_amount(t.get('amount', 0)) < 0)), 2)
+        net_amount = round(total_income - total_expenses, 2)
         
         # Write overall summary
         worksheet.write(row, 0, 'Overall Summary', header_format)
@@ -258,9 +258,9 @@ class MonthlyReportGenerator:
         
         for month_year in sorted_months:
             month_transactions = monthly_data[month_year]
-            month_income = sum(self._clean_amount(t.get('amount', 0)) for t in month_transactions if self._clean_amount(t.get('amount', 0)) > 0)
-            month_expenses = abs(sum(self._clean_amount(t.get('amount', 0)) for t in month_transactions if self._clean_amount(t.get('amount', 0)) < 0))
-            month_net = month_income - month_expenses
+            month_income = round(sum(self._clean_amount(t.get('amount', 0)) for t in month_transactions if self._clean_amount(t.get('amount', 0)) > 0), 2)
+            month_expenses = round(abs(sum(self._clean_amount(t.get('amount', 0)) for t in month_transactions if self._clean_amount(t.get('amount', 0)) < 0)), 2)
+            month_net = round(month_income - month_expenses, 2)
             
             display_name = self._format_sheet_name(month_year)
             
@@ -286,9 +286,9 @@ class MonthlyReportGenerator:
         row = 2
         
         # Monthly summary
-        month_income = sum(self._clean_amount(t.get('amount', 0)) for t in transactions if self._clean_amount(t.get('amount', 0)) > 0)
-        month_expenses = abs(sum(self._clean_amount(t.get('amount', 0)) for t in transactions if self._clean_amount(t.get('amount', 0)) < 0))
-        month_net = month_income - month_expenses
+        month_income = round(sum(self._clean_amount(t.get('amount', 0)) for t in transactions if self._clean_amount(t.get('amount', 0)) > 0), 2)
+        month_expenses = round(abs(sum(self._clean_amount(t.get('amount', 0)) for t in transactions if self._clean_amount(t.get('amount', 0)) < 0)), 2)
+        month_net = round(month_income - month_expenses, 2)
         
         worksheet.write(row, 0, 'Monthly Summary', summary_header_format)
         worksheet.merge_range(row, 0, row, 1, 'Monthly Summary', summary_header_format)

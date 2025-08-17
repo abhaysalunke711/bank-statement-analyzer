@@ -129,7 +129,7 @@ class PivotMonthlyReportGenerator:
             amount = abs(self._clean_amount(transaction.get('amount', 0)))  # Use absolute values
             
             if month_year:
-                category_month_data[category][month_year] += amount
+                category_month_data[category][month_year] += round(amount, 2)
         
         # Convert to regular dict and ensure all months are present
         result = {}
@@ -138,9 +138,9 @@ class PivotMonthlyReportGenerator:
             total = 0
             for month in months:
                 amount = category_month_data[category].get(month, 0)
-                result[category][month] = amount
+                result[category][month] = round(amount, 2)
                 total += amount
-            result[category]['total'] = total
+            result[category]['total'] = round(total, 2)
         
         return result
     
@@ -343,14 +343,14 @@ class PivotMonthlyReportGenerator:
             for col, month in enumerate(months, 1):
                 amount = category_data.get(month, 0)
                 if amount > 0:
-                    worksheet.write(row, col, amount, formats['income_amount'])
+                    worksheet.write(row, col, round(amount, 2), formats['income_amount'])
                     income_total_by_month[col - 1] += amount
                 else:
                     worksheet.write(row, col, '', formats['income_amount'])
             
             # Category total
             category_total = category_data.get('total', 0)
-            worksheet.write(row, num_months + 1, category_total, formats['income_total'])
+            worksheet.write(row, num_months + 1, round(category_total, 2), formats['income_total'])
             income_grand_total += category_total
             
             row += 1
@@ -358,8 +358,8 @@ class PivotMonthlyReportGenerator:
         # Income totals row
         worksheet.write(row, 0, 'TOTAL INCOME', formats['income_total'])
         for col, monthly_total in enumerate(income_total_by_month, 1):
-            worksheet.write(row, col, monthly_total, formats['income_total'])
-        worksheet.write(row, num_months + 1, income_grand_total, formats['income_total'])
+            worksheet.write(row, col, round(monthly_total, 2), formats['income_total'])
+        worksheet.write(row, num_months + 1, round(income_grand_total, 2), formats['income_total'])
         row += 1
         
         # 4 empty rows separator
@@ -385,14 +385,14 @@ class PivotMonthlyReportGenerator:
             for col, month in enumerate(months, 1):
                 amount = category_data.get(month, 0)
                 if amount > 0:
-                    worksheet.write(row, col, amount, formats['expense_amount'])
+                    worksheet.write(row, col, round(amount, 2), formats['expense_amount'])
                     expense_total_by_month[col - 1] += amount
                 else:
                     worksheet.write(row, col, '', formats['expense_amount'])
             
             # Category total
             category_total = category_data.get('total', 0)
-            worksheet.write(row, num_months + 1, category_total, formats['expense_total'])
+            worksheet.write(row, num_months + 1, round(category_total, 2), formats['expense_total'])
             expense_grand_total += category_total
             
             row += 1
@@ -400,18 +400,18 @@ class PivotMonthlyReportGenerator:
         # Expense totals row
         worksheet.write(row, 0, 'TOTAL EXPENSES', formats['expense_total'])
         for col, monthly_total in enumerate(expense_total_by_month, 1):
-            worksheet.write(row, col, monthly_total, formats['expense_total'])
-        worksheet.write(row, num_months + 1, expense_grand_total, formats['expense_total'])
+            worksheet.write(row, col, round(monthly_total, 2), formats['expense_total'])
+        worksheet.write(row, num_months + 1, round(expense_grand_total, 2), formats['expense_total'])
         row += 2
         
         # NET AMOUNT SUMMARY
         worksheet.write(row, 0, 'NET AMOUNT', formats['summary_label'])
         for col in range(1, num_months + 1):
             net_amount = income_total_by_month[col - 1] - expense_total_by_month[col - 1]
-            worksheet.write(row, col, net_amount, formats['summary_amount'])
+            worksheet.write(row, col, round(net_amount, 2), formats['summary_amount'])
         
         net_total = income_grand_total - expense_grand_total
-        worksheet.write(row, num_months + 1, net_total, formats['summary_amount'])
+        worksheet.write(row, num_months + 1, round(net_total, 2), formats['summary_amount'])
         
         # Auto-adjust column widths
         worksheet.set_column(0, 0, 25)  # Category column

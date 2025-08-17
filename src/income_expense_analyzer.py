@@ -214,13 +214,13 @@ class IncomeExpenseAnalyzer:
         total_expenses = sum(abs(self._clean_amount(t.get('amount', 0))) for t in expense_transactions)
         
         return {
-            'total_income': total_income,
-            'total_expenses': total_expenses,
-            'net_amount': total_income - total_expenses,
+            'total_income': round(total_income, 2),
+            'total_expenses': round(total_expenses, 2),
+            'net_amount': round(total_income - total_expenses, 2),
             'income_count': len(income_transactions),
             'expense_count': len(expense_transactions),
-            'income_avg': total_income / len(income_transactions) if income_transactions else 0,
-            'expense_avg': total_expenses / len(expense_transactions) if expense_transactions else 0,
+            'income_avg': round(total_income / len(income_transactions), 2) if income_transactions else 0,
+            'expense_avg': round(total_expenses / len(expense_transactions), 2) if expense_transactions else 0,
             'income_transactions': income_transactions,
             'expense_transactions': expense_transactions
         }
