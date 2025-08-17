@@ -175,6 +175,27 @@ def download_file(filename):
         flash('Error downloading file', 'error')
         return redirect(url_for('index'))
 
+@app.route('/view_pdf/<filename>')
+def view_pdf(filename):
+    """Serve PDF files for viewing in browser."""
+    try:
+        # Check in uploads folder first
+        upload_path = os.path.join(UPLOAD_FOLDER, filename)
+        if os.path.exists(upload_path):
+            return send_file(upload_path, mimetype='application/pdf')
+        
+        # Check in output folder as fallback
+        output_path = os.path.join(OUTPUT_FOLDER, filename)
+        if os.path.exists(output_path):
+            return send_file(output_path, mimetype='application/pdf')
+        
+        # File not found
+        return "PDF file not found", 404
+        
+    except Exception as e:
+        logger.error(f"Error serving PDF {filename}: {e}")
+        return "Error loading PDF", 500
+
 @app.route('/api/analyze', methods=['POST'])
 def api_analyze():
     """API endpoint for programmatic analysis."""

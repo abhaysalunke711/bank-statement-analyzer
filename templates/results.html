@@ -374,18 +374,53 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
-                <div id="pdfViewerContent" style="height: 80vh;">
-                    <div class="d-flex justify-content-center align-items-center h-100">
-                        <div class="text-center">
-                            <div class="spinner-border text-danger" role="status">
+                <!-- PDF Controls -->
+                <div class="pdf-controls bg-dark text-white p-2 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="previousPage()" id="prevPageBtn">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="mx-2">
+                            Page <input type="number" id="pageNum" class="form-control form-control-sm d-inline-block" style="width: 60px;" min="1" onchange="goToPage()"> 
+                            of <span id="pageCount">0</span>
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="nextPage()" id="nextPageBtn">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="zoomOut()">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <span id="zoomLevel" class="mx-2">100%</span>
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="zoomIn()">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="resetZoom()">
+                            <i class="fas fa-expand-arrows-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- PDF Canvas Container -->
+                <div id="pdfViewerContent" style="height: 75vh; overflow: auto; background: #525659;">
+                    <div class="d-flex justify-content-center align-items-center h-100" id="pdfLoadingDiv">
+                        <div class="text-center text-white">
+                            <div class="spinner-border text-light" role="status">
                                 <span class="visually-hidden">Loading PDF...</span>
                             </div>
                             <p class="mt-2">Loading PDF content...</p>
                         </div>
                     </div>
+                    <canvas id="pdfCanvas" style="display: none; margin: 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"></canvas>
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline-info" onclick="toggleFullscreen()">
+                    <i class="fas fa-expand me-1"></i>
+                    Fullscreen
+                </button>
                 <button type="button" class="btn btn-outline-danger" onclick="downloadPDF()">
                     <i class="fas fa-download me-1"></i>
                     Download PDF
@@ -401,6 +436,18 @@
 <script>
 // Global variables for PDF viewing
 let currentPDFFile = null;
+let pdfDoc = null;
+let pageNum = 1;
+let pageRendering = false;
+let pageNumPending = null;
+let scale = 1.0;
+let canvas = null;
+let ctx = null;
+
+// Configure PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize tooltips for truncated text
@@ -604,41 +651,189 @@ function openPDFViewer(filename) {
     loadPDFContent(filename);
 }
 
-// Load PDF content (simulation - in real implementation, you'd need a backend endpoint)
+// Load PDF content using PDF.js
 function loadPDFContent(filename) {
-    const pdfViewerContent = document.getElementById('pdfViewerContent');
+    if (typeof pdfjsLib === 'undefined') {
+        showPDFError('PDF.js library not loaded');
+        return;
+    }
     
-    // Simulate loading
-    setTimeout(() => {
-        // For now, show a message about PDF viewing
-        // In a real implementation, you'd use PDF.js or similar
-        pdfViewerContent.innerHTML = `
-            <div class="d-flex justify-content-center align-items-center h-100">
-                <div class="text-center">
-                    <i class="fas fa-file-pdf fa-4x text-danger mb-3"></i>
-                    <h5>PDF Viewer</h5>
-                    <p class="mb-3">Viewing: <strong>${filename}</strong></p>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>PDF Integration Ready!</strong><br>
-                        This feature can be enhanced with PDF.js library to display PDF content directly in the browser.
-                        For now, you can download the PDF to view it.
-                    </div>
-                    <button class="btn btn-primary" onclick="downloadPDF()">
-                        <i class="fas fa-download me-1"></i>
-                        Download PDF
-                    </button>
-                </div>
+    // Initialize canvas
+    canvas = document.getElementById('pdfCanvas');
+    ctx = canvas.getContext('2d');
+    
+    // Reset variables
+    pageNum = 1;
+    scale = 1.0;
+    
+    // Load PDF
+    const url = `/view_pdf/${encodeURIComponent(filename)}`;
+    
+    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+        pdfDoc = pdfDoc_;
+        document.getElementById('pageCount').textContent = pdfDoc.numPages;
+        document.getElementById('pageNum').value = pageNum;
+        
+        // Hide loading div and show canvas
+        document.getElementById('pdfLoadingDiv').style.display = 'none';
+        canvas.style.display = 'block';
+        
+        // Render the first page
+        renderPage(pageNum);
+        
+        // Enable/disable navigation buttons
+        updateNavigationButtons();
+        
+    }).catch(function(error) {
+        console.error('Error loading PDF:', error);
+        showPDFError('Failed to load PDF: ' + error.message);
+    });
+}
+
+// Render a specific page
+function renderPage(num) {
+    pageRendering = true;
+    
+    // Get page
+    pdfDoc.getPage(num).then(function(page) {
+        const viewport = page.getViewport({scale: scale});
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        // Render PDF page into canvas context
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
+        
+        const renderTask = page.render(renderContext);
+        
+        // Wait for rendering to finish
+        renderTask.promise.then(function() {
+            pageRendering = false;
+            if (pageNumPending !== null) {
+                // New page rendering is pending
+                renderPage(pageNumPending);
+                pageNumPending = null;
+            }
+        });
+    });
+    
+    // Update page counters
+    document.getElementById('pageNum').value = num;
+    updateZoomDisplay();
+}
+
+// Queue rendering of a page
+function queueRenderPage(num) {
+    if (pageRendering) {
+        pageNumPending = num;
+    } else {
+        renderPage(num);
+    }
+}
+
+// Show PDF error message
+function showPDFError(message) {
+    const pdfViewerContent = document.getElementById('pdfViewerContent');
+    pdfViewerContent.innerHTML = `
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="text-center text-white">
+                <i class="fas fa-exclamation-triangle fa-4x text-warning mb-3"></i>
+                <h5>PDF Loading Error</h5>
+                <p class="mb-3">${message}</p>
+                <button class="btn btn-primary" onclick="downloadPDF()">
+                    <i class="fas fa-download me-1"></i>
+                    Download PDF Instead
+                </button>
             </div>
-        `;
-    }, 1000);
+        </div>
+    `;
+}
+
+// Navigation functions
+function previousPage() {
+    if (pageNum <= 1) {
+        return;
+    }
+    pageNum--;
+    queueRenderPage(pageNum);
+    updateNavigationButtons();
+}
+
+function nextPage() {
+    if (pageNum >= pdfDoc.numPages) {
+        return;
+    }
+    pageNum++;
+    queueRenderPage(pageNum);
+    updateNavigationButtons();
+}
+
+function goToPage() {
+    const inputPage = parseInt(document.getElementById('pageNum').value);
+    if (inputPage >= 1 && inputPage <= pdfDoc.numPages) {
+        pageNum = inputPage;
+        queueRenderPage(pageNum);
+        updateNavigationButtons();
+    } else {
+        document.getElementById('pageNum').value = pageNum;
+    }
+}
+
+function updateNavigationButtons() {
+    document.getElementById('prevPageBtn').disabled = (pageNum <= 1);
+    document.getElementById('nextPageBtn').disabled = (pageNum >= pdfDoc.numPages);
+}
+
+// Zoom functions
+function zoomIn() {
+    scale += 0.25;
+    queueRenderPage(pageNum);
+    updateZoomDisplay();
+}
+
+function zoomOut() {
+    if (scale > 0.5) {
+        scale -= 0.25;
+        queueRenderPage(pageNum);
+        updateZoomDisplay();
+    }
+}
+
+function resetZoom() {
+    scale = 1.0;
+    queueRenderPage(pageNum);
+    updateZoomDisplay();
+}
+
+function updateZoomDisplay() {
+    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+}
+
+// Fullscreen toggle
+function toggleFullscreen() {
+    const modal = document.getElementById('pdfViewerModal');
+    if (!document.fullscreenElement) {
+        modal.requestFullscreen().catch(err => {
+            console.log('Error attempting to enable fullscreen:', err.message);
+        });
+    } else {
+        document.exitFullscreen();
+    }
 }
 
 // Download PDF function
 function downloadPDF() {
     if (currentPDFFile) {
-        // In a real implementation, this would trigger a download from the server
-        alert('Download functionality would be implemented here.\\nFile: ' + currentPDFFile);
+        // Create a temporary link to download the PDF
+        const link = document.createElement('a');
+        link.href = `/view_pdf/${encodeURIComponent(currentPDFFile)}`;
+        link.download = currentPDFFile;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 }
 
@@ -1090,6 +1285,89 @@ function animateCards() {
     
     .clickable-card small {
         font-size: 0.7rem;
+    }
+}
+
+/* PDF Viewer Styles */
+.pdf-controls {
+    border-bottom: 1px solid #495057;
+    flex-wrap: wrap;
+}
+
+.pdf-controls .btn {
+    border-radius: 4px;
+}
+
+.pdf-controls input[type="number"] {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    text-align: center;
+}
+
+.pdf-controls input[type="number"]:focus {
+    background: rgba(255,255,255,0.2);
+    border-color: #007bff;
+    box-shadow: none;
+    color: white;
+}
+
+#pdfCanvas {
+    max-width: 100%;
+    height: auto;
+    background: white;
+    border-radius: 4px;
+}
+
+#pdfViewerContent {
+    position: relative;
+}
+
+/* Fullscreen styles */
+.modal:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    max-width: none;
+}
+
+.modal:-moz-full-screen {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    max-width: none;
+}
+
+.modal:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    max-width: none;
+}
+
+/* PDF loading animation */
+@keyframes pdfLoad {
+    0% { opacity: 0; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+#pdfCanvas {
+    animation: pdfLoad 0.3s ease-in-out;
+}
+
+/* Responsive PDF controls */
+@media (max-width: 768px) {
+    .pdf-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .pdf-controls > div {
+        justify-content: center;
+    }
+    
+    #pdfViewerContent {
+        height: 60vh !important;
     }
 }
 </style>
