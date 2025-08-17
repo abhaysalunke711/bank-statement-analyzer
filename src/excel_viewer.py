@@ -262,8 +262,9 @@ class ExcelViewer:
             table_html.append(f'<tr class="{row_class}">')
             
             for col_idx, cell in enumerate(row):
-                # Format cells based on content
-                formatted_cell = self._format_cell(cell, sheet_data['headers'][col_idx] if col_idx < len(sheet_data['headers']) else '')
+                # Format cells based on content with row context for better color coding
+                header = sheet_data['headers'][col_idx] if col_idx < len(sheet_data['headers']) else ''
+                formatted_cell = self._format_cell(cell, header, row)
                 table_html.append(f'<td>{formatted_cell}</td>')
             
             table_html.append('</tr>')
@@ -273,26 +274,69 @@ class ExcelViewer:
         
         return summary_html + '\n'.join(table_html)
     
-    def _format_cell(self, cell: str, header: str) -> str:
-        """Format cell content based on type and header."""
+    def _format_cell(self, cell: str, header: str, row_data: List[str] = None) -> str:
+        """Format cell content based on type and header with income/expense color coding."""
         if not cell or cell == '':
             return '<span class="text-muted">—</span>'
         
         header_lower = header.lower()
         
-        # Format currency amounts
+        # Detect transaction type from row data for color coding
+        transaction_type = None
+        if row_data:
+            # Look for 'Type' column in the row
+            try:
+                type_index = next(i for i, h in enumerate(['Type', 'Transaction Type', 'Income/Expense']) 
+                                if any(keyword in h for keyword in ['type', 'income', 'expense']))
+                if type_index < len(row_data):
+                    transaction_type = row_data[type_index].lower()
+            except (StopIteration, IndexError):
+                # Try to infer from amount if available
+                if 'amount' in header_lower:
+                    try:
+                        amount = float(str(cell).replace('$', '').replace(',', '').replace('(', '-').replace(')', ''))
+                        transaction_type = 'income' if amount > 0 else 'expense'
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Format currency amounts with income/expense colors
         if 'amount' in header_lower or 'total' in header_lower or '$' in str(cell):
             try:
                 # Try to parse as currency
                 if '$' in str(cell) or ',' in str(cell):
-                    return f'<span class="text-end fw-bold">{cell}</span>'
+                    amount_str = str(cell)
+                    # Apply color based on transaction type or amount sign
+                    if transaction_type == 'income' or (not transaction_type and not '-' in amount_str and not '(' in amount_str):
+                        return f'<span class="text-end fw-bold text-success bg-light-success px-2 py-1 rounded">{cell}</span>'
+                    else:
+                        return f'<span class="text-end fw-bold text-danger bg-light-danger px-2 py-1 rounded">{cell}</span>'
                 else:
                     # Try to parse as number
                     num = float(cell)
                     if num < 0:
-                        return f'<span class="text-end fw-bold text-danger">${abs(num):,.2f}</span>'
+                        return f'<span class="text-end fw-bold text-danger bg-light-danger px-2 py-1 rounded">${abs(num):,.2f}</span>'
                     else:
-                        return f'<span class="text-end fw-bold text-success">${num:,.2f}</span>'
+                        return f'<span class="text-end fw-bold text-success bg-light-success px-2 py-1 rounded">${num:,.2f}</span>'
+            except (ValueError, TypeError):
+                pass
+        
+        # Format transaction type with color coding
+        if 'type' in header_lower and cell.lower() in ['income', 'expense']:
+            if cell.lower() == 'income':
+                return f'<span class="badge bg-success"><i class="fas fa-arrow-up me-1"></i>{cell}</span>'
+            else:
+                return f'<span class="badge bg-danger"><i class="fas fa-arrow-down me-1"></i>{cell}</span>'
+        
+        # Format confidence percentages
+        if 'confidence' in header_lower and '%' in str(cell):
+            try:
+                conf_val = float(str(cell).replace('%', ''))
+                if conf_val >= 80:
+                    return f'<span class="badge bg-success">{cell}</span>'
+                elif conf_val >= 60:
+                    return f'<span class="badge bg-warning">{cell}</span>'
+                else:
+                    return f'<span class="badge bg-secondary">{cell}</span>'
             except (ValueError, TypeError):
                 pass
         
@@ -313,6 +357,13 @@ class ExcelViewer:
             }
             color = badge_colors.get(cell, 'bg-light text-dark')
             return f'<span class="badge {color}">{cell}</span>'
+        
+        # Format descriptions with transaction type coloring
+        if 'description' in header_lower and transaction_type:
+            if transaction_type == 'income':
+                return f'<span class="text-success-emphasis">{cell}</span>'
+            elif transaction_type == 'expense':
+                return f'<span class="text-danger-emphasis">{cell}</span>'
         
         # Long descriptions - truncate with tooltip
         if len(str(cell)) > 50:
