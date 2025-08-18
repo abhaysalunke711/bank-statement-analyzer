@@ -26,14 +26,17 @@ app.secret_key = 'bank_analyzer_secret_key_2024'  # Change this in production
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
+OUTPUT_FOLDER = 'output'
 ALLOWED_EXTENSIONS = {'pdf'}
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
-# Ensure upload folder exists
+# Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -140,12 +143,35 @@ def upload_files():
         else:
             excel_html = "<p class='text-muted'>Excel file not available</p>"
         
-        # Prepare results for display
+        # Prepare results for display - store both original and actual filenames
+        uploaded_file_info = []
+        for file_path in uploaded_files:
+            actual_filename = os.path.basename(file_path)
+            # Extract original filename (remove timestamp that was added during upload)
+            # Format: originalname_YYYYMMDD_HHMMSS.ext
+            if '_20' in actual_filename and actual_filename.count('_') >= 2:
+                # Find the last two underscores (date and time)
+                parts = actual_filename.rsplit('_', 2)  # Split from right, max 2 splits
+                if len(parts) == 3:
+                    # parts[0] = original name, parts[1] = date, parts[2] = time.ext
+                    original_name = parts[0] + os.path.splitext(actual_filename)[1]
+                else:
+                    original_name = actual_filename
+            else:
+                original_name = actual_filename
+            
+            uploaded_file_info.append({
+                'original_name': original_name,
+                'actual_filename': actual_filename,
+                'display_name': original_name
+            })
+        
         results['excel_path'] = excel_path
         results['excel_data'] = excel_data
         results['excel_stats'] = excel_stats
         results['excel_html'] = excel_html
-        results['uploaded_files'] = [os.path.basename(f) for f in uploaded_files]
+        results['uploaded_files'] = [f['display_name'] for f in uploaded_file_info]  # For backward compatibility
+        results['uploaded_file_info'] = uploaded_file_info
         
         flash(f'Successfully processed {results["total_transactions"]} transactions from {len(uploaded_files)} files', 'success')
         
@@ -179,22 +205,39 @@ def download_file(filename):
 def view_pdf(filename):
     """Serve PDF files for viewing in browser."""
     try:
+        logger.info(f"Attempting to serve PDF: {filename}")
+        
         # Check in uploads folder first
         upload_path = os.path.join(UPLOAD_FOLDER, filename)
+        logger.info(f"Checking upload path: {upload_path}")
+        logger.info(f"Upload path exists: {os.path.exists(upload_path)}")
+        
         if os.path.exists(upload_path):
-            return send_file(upload_path, mimetype='application/pdf')
+            logger.info(f"Serving PDF from uploads: {upload_path}")
+            return send_file(upload_path, mimetype='application/pdf', as_attachment=False)
         
         # Check in output folder as fallback
         output_path = os.path.join(OUTPUT_FOLDER, filename)
-        if os.path.exists(output_path):
-            return send_file(output_path, mimetype='application/pdf')
+        logger.info(f"Checking output path: {output_path}")
+        logger.info(f"Output path exists: {os.path.exists(output_path)}")
         
-        # File not found
-        return "PDF file not found", 404
+        if os.path.exists(output_path):
+            logger.info(f"Serving PDF from output: {output_path}")
+            return send_file(output_path, mimetype='application/pdf', as_attachment=False)
+        
+        # List available files for debugging
+        upload_files = os.listdir(UPLOAD_FOLDER) if os.path.exists(UPLOAD_FOLDER) else []
+        output_files = os.listdir(OUTPUT_FOLDER) if os.path.exists(OUTPUT_FOLDER) else []
+        
+        logger.error(f"PDF file not found: {filename}")
+        logger.error(f"Available upload files: {upload_files}")
+        logger.error(f"Available output files: {output_files}")
+        
+        return f"PDF file '{filename}' not found. Available files: {upload_files + output_files}", 404
         
     except Exception as e:
-        logger.error(f"Error serving PDF {filename}: {e}")
-        return "Error loading PDF", 500
+        logger.error(f"Error serving PDF {filename}: {e}", exc_info=True)
+        return f"Error loading PDF: {str(e)}", 500
 
 @app.route('/api/analyze', methods=['POST'])
 def api_analyze():

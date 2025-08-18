@@ -68,19 +68,35 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    {% for file in results.uploaded_files %}
-                    <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="card border-info clickable-card pdf-file-card" 
-                             onclick="openPDFViewer('{{ file }}')" 
-                             title="Click to view PDF content">
-                            <div class="card-body text-center">
-                                <i class="fas fa-file-pdf fa-3x text-danger mb-2"></i>
-                                <h6 class="card-title">{{ file }}</h6>
-                                <small class="text-muted">👆 Click to view PDF</small>
+                    {% if results.uploaded_file_info %}
+                        {% for file_info in results.uploaded_file_info %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border-info clickable-card pdf-file-card" 
+                                 onclick="openPDFViewer('{{ file_info.actual_filename }}', '{{ file_info.display_name }}')" 
+                                 title="Click to view PDF content">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-file-pdf fa-3x text-danger mb-2"></i>
+                                    <h6 class="card-title">{{ file_info.display_name }}</h6>
+                                    <small class="text-muted">👆 Click to view PDF</small>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    {% endfor %}
+                        {% endfor %}
+                    {% else %}
+                        {% for file in results.uploaded_files %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border-info clickable-card pdf-file-card" 
+                                 onclick="openPDFViewer('{{ file }}')" 
+                                 title="Click to view PDF content">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-file-pdf fa-3x text-danger mb-2"></i>
+                                    <h6 class="card-title">{{ file }}</h6>
+                                    <small class="text-muted">👆 Click to view PDF</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -638,14 +654,19 @@ function displayCategoriesBreakdown(categories) {
 }
 
 // Open PDF viewer
-function openPDFViewer(filename) {
+function openPDFViewer(filename, displayName = null) {
     currentPDFFile = filename;
     const modal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
     const pdfFileName = document.getElementById('pdfFileName');
     const pdfViewerContent = document.getElementById('pdfViewerContent');
     
-    pdfFileName.textContent = filename;
+    // Use display name if provided, otherwise use filename
+    pdfFileName.textContent = displayName || filename;
     modal.show();
+    
+    // Reset the viewer state
+    document.getElementById('pdfLoadingDiv').style.display = 'flex';
+    document.getElementById('pdfCanvas').style.display = 'none';
     
     // Load PDF content
     loadPDFContent(filename);
@@ -653,7 +674,10 @@ function openPDFViewer(filename) {
 
 // Load PDF content using PDF.js
 function loadPDFContent(filename) {
+    console.log('Loading PDF:', filename);
+    
     if (typeof pdfjsLib === 'undefined') {
+        console.error('PDF.js library not loaded');
         showPDFError('PDF.js library not loaded');
         return;
     }
@@ -668,8 +692,14 @@ function loadPDFContent(filename) {
     
     // Load PDF
     const url = `/view_pdf/${encodeURIComponent(filename)}`;
+    console.log('PDF URL:', url);
+    
+    // Show loading state
+    document.getElementById('pdfLoadingDiv').style.display = 'flex';
+    canvas.style.display = 'none';
     
     pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+        console.log('PDF loaded successfully, pages:', pdfDoc_.numPages);
         pdfDoc = pdfDoc_;
         document.getElementById('pageCount').textContent = pdfDoc.numPages;
         document.getElementById('pageNum').value = pageNum;
@@ -686,7 +716,23 @@ function loadPDFContent(filename) {
         
     }).catch(function(error) {
         console.error('Error loading PDF:', error);
-        showPDFError('Failed to load PDF: ' + error.message);
+        console.error('PDF URL that failed:', url);
+        
+        // Try to get more details about the error
+        fetch(url)
+            .then(response => {
+                console.log('Fetch response status:', response.status);
+                console.log('Fetch response headers:', response.headers);
+                return response.text();
+            })
+            .then(text => {
+                console.log('Server response:', text);
+                showPDFError(`Failed to load PDF: ${error.message}\\n\\nServer response: ${text.substring(0, 200)}`);
+            })
+            .catch(fetchError => {
+                console.error('Fetch error:', fetchError);
+                showPDFError(`Failed to load PDF: ${error.message}\\n\\nNetwork error: ${fetchError.message}`);
+            });
     });
 }
 
