@@ -34,16 +34,10 @@
                             <h5>Drag & Drop Files Here</h5>
                             <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-danger" onclick="console.log('Bank Statement button clicked'); selectBankStatement();">
-                                    <i class="fas fa-file-pdf me-2"></i>
-                                    Add Bank Statement
-                                </button>
-                                <button type="button" class="btn btn-success" onclick="console.log('Receipt button clicked'); selectReceipt();">
-                                    <i class="fas fa-receipt me-2"></i>
-                                    Add Receipt
-                                </button>
-                            </div>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click();">
+                                <i class="fas fa-folder-open me-2"></i>
+                                Browse Files
+                            </button>
                         </div>
                     </div>
                     
@@ -191,79 +185,40 @@
                     <button type="button" class="btn btn-success" onclick="confirmReceipt()">
                         <i class="fas fa-check me-1"></i>Confirm Receipt
                     </button>
-                </div>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Global functions for file handling
-function selectBankStatement() {
-    console.log('selectBankStatement called');
-    const fileInput = document.getElementById('fileInput');
-    console.log('fileInput element:', fileInput);
-    if (!fileInput) {
-        console.error('fileInput element not found!');
-        return;
-    }
-    console.log('Setting accept to PDF');
-    fileInput.accept = '.pdf';
-    console.log('Current accept value:', fileInput.accept);
-    updateUploadAreaText();
-    console.log('Triggering file input click');
-    fileInput.click();
+// File type checking functions
+function isPDF(file) {
+    return file.type === 'application/pdf';
 }
 
-function selectReceipt() {
-    console.log('selectReceipt called');
-    const fileInput = document.getElementById('fileInput');
-    console.log('fileInput element:', fileInput);
-    if (!fileInput) {
-        console.error('fileInput element not found!');
-        return;
-    }
-    console.log('Setting accept to image types');
-    fileInput.accept = '.jpg,.jpeg,.png';
-    console.log('Current accept value:', fileInput.accept);
-    updateUploadAreaText();
-    console.log('Triggering file input click');
-    fileInput.click();
+function isImage(file) {
+    const type = file.type.toLowerCase();
+    return type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
 }
 
-function updateUploadAreaText() {
-    console.log('updateUploadAreaText called');
-    const heading = document.querySelector('.upload-content h5');
-    console.log('heading element:', heading);
-    const subtext = document.querySelector('.upload-content p.text-muted');
-    console.log('subtext element:', subtext);
-    const fileInput = document.getElementById('fileInput');
-    console.log('fileInput element:', fileInput);
-    
-    if (!heading || !subtext || !fileInput) {
-        console.error('Required elements not found!');
-        return;
+function getFileTypeIcon(file) {
+    if (isPDF(file)) {
+        return '<i class="fas fa-file-pdf text-danger"></i>';
+    } else if (isImage(file)) {
+        return '<i class="fas fa-receipt text-success"></i>';
     }
-    
-    const currentAccept = fileInput.accept;
-    console.log('Current accept value:', currentAccept);
-    
-    if (currentAccept === '.pdf') {
-        console.log('Setting text for PDF mode');
-        heading.textContent = 'Drag & Drop Bank Statements Here';
-        subtext.textContent = 'PDF files only';
-    } else if (currentAccept === '.jpg,.jpeg,.png') {
-        console.log('Setting text for image mode');
-        heading.textContent = 'Drag & Drop Receipts Here';
-        subtext.textContent = 'Image files (JPG, PNG)';
-    } else {
-        console.log('Setting text for default mode');
-        heading.textContent = 'Drag & Drop Files Here';
-        subtext.textContent = 'Bank statements (PDF) or receipts (JPG, PNG)';
+    return '<i class="fas fa-file text-muted"></i>';
+}
+
+function getFileTypeLabel(file) {
+    if (isPDF(file)) {
+        return '<span class="badge bg-danger">Bank Statement</span>';
+    } else if (isImage(file)) {
+        return '<span class="badge bg-success">Receipt</span>';
     }
-    console.log('Updated heading:', heading.textContent);
-    console.log('Updated subtext:', subtext.textContent);
+    return '<span class="badge bg-secondary">Unknown</span>';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -395,39 +350,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function handleFiles(newFiles) {
         console.log('handleFiles called with', newFiles.length, 'files');
-        console.log('Current fileInput.accept:', fileInput.accept);
         
         // Filter allowed file types
         const allowedFiles = newFiles.filter(file => {
-            const type = file.type.toLowerCase();
-            console.log('Processing file:', file.name, 'type:', type);
-            
-            const isPDF = type === 'application/pdf';
-            const isImage = type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
-            console.log('isPDF:', isPDF, 'isImage:', isImage);
-            
-            // Check if file matches the current accept attribute
-            const currentAccept = fileInput.accept;
-            let isAllowed;
-            if (currentAccept === '.pdf') {
-                isAllowed = isPDF;
-                console.log('PDF mode - file allowed:', isAllowed);
-            } else if (currentAccept === '.jpg,.jpeg,.png') {
-                isAllowed = isImage;
-                console.log('Image mode - file allowed:', isAllowed);
-            } else {
-                isAllowed = isPDF || isImage;
-                console.log('All types mode - file allowed:', isAllowed);
-            }
-            return isAllowed;
+            console.log('Processing file:', file.name, 'type:', file.type);
+            return isPDF(file) || isImage(file);
         });
         
         if (allowedFiles.length !== newFiles.length) {
-            const currentAccept = fileInput.accept;
-            const expectedType = currentAccept === '.pdf' ? 'PDF files' : 
-                               currentAccept === '.jpg,.jpeg,.png' ? 'image files (JPG, PNG)' : 
-                               'PDF and image files';
-            alert(`Only ${expectedType} are allowed. Other files have been filtered out.`);
+            alert('Only PDF bank statements and image receipts (JPG, PNG) are allowed. Other files have been filtered out.');
         }
         
         // Show preview for image files
@@ -598,28 +529,63 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedFiles.style.display = 'block';
         fileList.innerHTML = '';
         
-        files.forEach((file, index) => {
-            const fileItem = document.createElement('div');
-            fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-            const isPDF = file.type === 'application/pdf';
-            const fileIcon = isPDF ? 
-                '<i class="fas fa-file-pdf text-danger me-2"></i>' : 
-                '<i class="fas fa-receipt text-success me-2"></i>';
-            const fileType = isPDF ? 'Bank Statement' : 'Receipt';
-            
-            fileItem.innerHTML = `
-                <div>
-                    ${fileIcon}
-                    <strong>${file.name}</strong>
-                    <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
-                    <span class="badge bg-${isPDF ? 'danger' : 'success'} ms-2">${fileType}</span>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-${isPDF ? 'danger' : 'success'}" onclick="removeFile(${index})">
-                    <i class="fas fa-times"></i>
-                </button>
+        // Group files by type
+        const statements = files.filter(isPDF);
+        const receipts = files.filter(isImage);
+        
+        // Display bank statements
+        if (statements.length > 0) {
+            const statementGroup = document.createElement('div');
+            statementGroup.className = 'mb-3';
+            statementGroup.innerHTML = `
+                <h6 class="mb-2">
+                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                    Bank Statements (${statements.length})
+                </h6>
             `;
-            fileList.appendChild(fileItem);
-        });
+            statements.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                fileItem.innerHTML = `
+                    <div>
+                        <strong>${file.name}</strong>
+                        <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                statementGroup.appendChild(fileItem);
+            });
+            fileList.appendChild(statementGroup);
+        }
+        
+        // Display receipts
+        if (receipts.length > 0) {
+            const receiptGroup = document.createElement('div');
+            receiptGroup.className = 'mb-3';
+            receiptGroup.innerHTML = `
+                <h6 class="mb-2">
+                    <i class="fas fa-receipt text-success me-2"></i>
+                    Receipts (${receipts.length})
+                </h6>
+            `;
+            receipts.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                fileItem.innerHTML = `
+                    <div>
+                        <strong>${file.name}</strong>
+                        <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="removeFile(${files.indexOf(file)})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                receiptGroup.appendChild(fileItem);
+            });
+            fileList.appendChild(receiptGroup);
+        }
     }
     
     function updateUploadButton() {
@@ -627,23 +593,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const uploadIcon = document.getElementById('uploadIcon');
         
         if (files.length > 0) {
-            // Check if we have PDFs, images, or both
-            const hasPDFs = files.some(f => f.type === 'application/pdf');
-            const hasImages = files.some(f => f.type.startsWith('image/'));
+            const statements = files.filter(isPDF);
+            const receipts = files.filter(isImage);
             
             // Update main upload icon
-            if (hasPDFs && hasImages) {
+            if (statements.length > 0 && receipts.length > 0) {
                 uploadIcon.className = 'fas fa-file-upload fa-3x text-primary mb-3';
-            } else if (hasPDFs) {
+            } else if (statements.length > 0) {
                 uploadIcon.className = 'fas fa-file-pdf fa-3x text-danger mb-3';
             } else {
                 uploadIcon.className = 'fas fa-receipt fa-3x text-success mb-3';
             }
             
             // Update button text
+            const fileCount = `${statements.length + receipts.length} File${files.length > 1 ? 's' : ''}`;
+            const statementText = statements.length > 0 ? `${statements.length} Statement${statements.length > 1 ? 's' : ''}` : '';
+            const receiptText = receipts.length > 0 ? `${receipts.length} Receipt${receipts.length > 1 ? 's' : ''}` : '';
+            const detailText = [statementText, receiptText].filter(Boolean).join(' & ');
+            
             uploadBtn.innerHTML = `
                 <i class="fas fa-analytics me-2"></i>
-                Analyze ${files.length} File${files.length > 1 ? 's' : ''}
+                Analyze ${fileCount}<br>
+                <small class="text-white-50">${detailText}</small>
             `;
         } else {
             // Reset to default icon
