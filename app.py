@@ -130,6 +130,29 @@ def upload_files():
         categorized_transactions = analyzer.keyword_matcher.batch_categorize(transactions)
         
         # Create pivot-style Excel report with color coding
+        # Prepare results for display - store both original and actual filenames
+        uploaded_file_info = []
+        for file_path in uploaded_files:
+            actual_filename = os.path.basename(file_path)
+            # Extract original filename (remove timestamp that was added during upload)
+            # Format: originalname_YYYYMMDD_HHMMSS.ext
+            if '_20' in actual_filename and actual_filename.count('_') >= 2:
+                # Find the last two underscores (date and time)
+                parts = actual_filename.rsplit('_', 2)  # Split from right, max 2 splits
+                if len(parts) == 3:
+                    # parts[0] = original name, parts[1] = date, parts[2] = time.ext
+                    original_name = parts[0] + os.path.splitext(actual_filename)[1]
+                else:
+                    original_name = actual_filename
+            else:
+                original_name = actual_filename
+            
+            uploaded_file_info.append({
+                'original_name': original_name,
+                'actual_filename': actual_filename,
+                'display_name': original_name
+            })
+
         # Extract receipt data from uploaded files
         receipt_data = []
         for file_info in uploaded_file_info:
@@ -202,12 +225,12 @@ def upload_files():
                 'display_name': original_name
             })
         
+        # Prepare results for display
         results['excel_path'] = excel_path
         results['excel_data'] = excel_data
         results['excel_stats'] = excel_stats
         results['excel_html'] = excel_html
-        results['uploaded_files'] = [f['display_name'] for f in uploaded_file_info]  # For backward compatibility
-        results['uploaded_file_info'] = uploaded_file_info
+        results['uploaded_files'] = [os.path.basename(f) for f in uploaded_files]  # Just use filenames
         results['chart_data'] = chart_data  # Add chart data to results
         
         flash(f'Successfully processed {results["total_transactions"]} transactions from {len(uploaded_files)} files', 'success')
