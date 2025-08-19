@@ -579,7 +579,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close the modal
         bootstrap.Modal.getInstance(document.getElementById('receiptPreviewModal')).hide();
     }
-    }
     
     function displaySelectedFiles() {
         console.log('=== Display Selected Files ===');
@@ -720,7 +719,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    window.removeFile = function(index) {
+    // Make removeFile globally accessible
+    function removeFile(index) {
         console.log('Removing file at index:', index);
         console.log('Files before removal:', files);
         
@@ -735,7 +735,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update UI
         displaySelectedFiles();
         updateUploadButton();
-    };
+    }
+    window.removeFile = removeFile;
     
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
