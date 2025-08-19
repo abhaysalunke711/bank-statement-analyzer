@@ -125,6 +125,87 @@
         </div>
     </div>
 </div>
+    <!-- Receipt Preview Modal -->
+    <div class="modal fade" id="receiptPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-receipt me-2"></i>
+                        Receipt Preview
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="row g-0">
+                        <!-- Receipt Image Preview -->
+                        <div class="col-md-5 border-end">
+                            <div class="receipt-image-container position-relative" style="height: 500px;">
+                                <img id="receiptImage" class="img-fluid w-100 h-100 object-fit-contain" alt="Receipt">
+                                <div class="position-absolute top-0 end-0 p-2">
+                                    <button class="btn btn-sm btn-light me-1" onclick="rotateImage(-90)">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-light" onclick="rotateImage(90)">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Extracted Data -->
+                        <div class="col-md-7">
+                            <div class="p-3">
+                                <!-- Store and Date -->
+                                <div class="mb-4">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" class="form-control" id="storeName" placeholder="Store Name">
+                                        <label for="storeName">Store Name</label>
+                                    </div>
+                                    <div class="form-floating">
+                                        <input type="date" class="form-control" id="receiptDate">
+                                        <label for="receiptDate">Receipt Date</label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Items List -->
+                                <div class="mb-4">
+                                    <h6 class="fw-bold mb-3">Items</h6>
+                                    <div id="itemsList" class="list-group mb-3">
+                                        <!-- Items will be added here dynamically -->
+                                    </div>
+                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="addNewItem()">
+                                        <i class="fas fa-plus me-1"></i>Add Item
+                                    </button>
+                                </div>
+                                
+                                <!-- Totals -->
+                                <div class="border-top pt-3">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Subtotal:</span>
+                                        <span id="subtotal">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Tax:</span>
+                                        <span id="tax">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between fw-bold">
+                                        <span>Total:</span>
+                                        <span id="total">$0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="confirmReceipt()">
+                        <i class="fas fa-check me-1"></i>Confirm Receipt
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block extra_js %}
@@ -192,6 +273,11 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUploadButton();
     }
     
+    // Receipt handling variables
+    let currentReceipt = null;
+    let currentRotation = 0;
+    let receiptItems = [];
+    
     function handleFiles(newFiles) {
         // Filter allowed file types
         const allowedFiles = newFiles.filter(file => {
@@ -206,9 +292,163 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Only PDF and image files (JPG, PNG) are allowed. Other files have been filtered out.');
         }
         
+        // Show preview for image files
+        allowedFiles.forEach(file => {
+            if (file.type.startsWith('image/')) {
+                previewReceipt(file);
+            }
+        });
+        
         files = allowedFiles;
         displaySelectedFiles();
         updateUploadButton();
+    }
+    
+    function previewReceipt(file) {
+        currentReceipt = file;
+        currentRotation = 0;
+        
+        // Read the image file
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // Show the image in the preview
+            const img = document.getElementById('receiptImage');
+            img.src = e.target.result;
+            img.style.transform = 'rotate(0deg)';
+            
+            // Reset form fields
+            document.getElementById('storeName').value = '';
+            document.getElementById('receiptDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('itemsList').innerHTML = '';
+            receiptItems = [];
+            updateTotals();
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('receiptPreviewModal'));
+            modal.show();
+            
+            // Process the receipt with OCR (you'll implement this later)
+            processReceiptOCR(file);
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    function rotateImage(degrees) {
+        currentRotation = (currentRotation + degrees) % 360;
+        const img = document.getElementById('receiptImage');
+        img.style.transform = `rotate(${currentRotation}deg)`;
+    }
+    
+    function addNewItem(name = '', amount = '', category = 'Uncategorized') {
+        const itemId = Date.now();
+        const itemHtml = `
+            <div class="list-group-item" data-item-id="${itemId}">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <input type="text" class="form-control form-control-sm" 
+                               placeholder="Item name" value="${name}"
+                               onchange="updateItem(${itemId}, 'name', this.value)">
+                    </div>
+                    <div class="col-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" step="0.01" min="0"
+                                   placeholder="0.00" value="${amount}"
+                                   onchange="updateItem(${itemId}, 'amount', this.value)">
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <select class="form-select form-select-sm" 
+                                onchange="updateItem(${itemId}, 'category', this.value)">
+                            <option value="Uncategorized" ${category === 'Uncategorized' ? 'selected' : ''}>Other</option>
+                            <option value="Groceries" ${category === 'Groceries' ? 'selected' : ''}>Groceries</option>
+                            <option value="Food" ${category === 'Food' ? 'selected' : ''}>Food</option>
+                            <option value="Shopping" ${category === 'Shopping' ? 'selected' : ''}>Shopping</option>
+                            <option value="Health" ${category === 'Health' ? 'selected' : ''}>Health</option>
+                            <option value="Transportation" ${category === 'Transportation' ? 'selected' : ''}>Transport</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('itemsList').insertAdjacentHTML('beforeend', itemHtml);
+        receiptItems.push({ id: itemId, name, amount: amount || 0, category });
+        updateTotals();
+    }
+    
+    function updateItem(itemId, field, value) {
+        const item = receiptItems.find(i => i.id === itemId);
+        if (item) {
+            item[field] = field === 'amount' ? parseFloat(value) || 0 : value;
+            updateTotals();
+        }
+    }
+    
+    function updateTotals() {
+        const subtotal = receiptItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+        const tax = subtotal * 0.1; // Assuming 10% tax
+        const total = subtotal + tax;
+        
+        document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+        document.getElementById('tax').textContent = formatCurrency(tax);
+        document.getElementById('total').textContent = formatCurrency(total);
+    }
+    
+    function formatCurrency(amount) {
+        return '$' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    
+    async function processReceiptOCR(file) {
+        try {
+            const formData = new FormData();
+            formData.append('receipt', file);
+            
+            const response = await fetch('/api/process_receipt', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Update form with extracted data
+                document.getElementById('storeName').value = data.store_name || '';
+                document.getElementById('receiptDate').value = data.date || new Date().toISOString().split('T')[0];
+                
+                // Add items
+                receiptItems = [];
+                document.getElementById('itemsList').innerHTML = '';
+                data.items.forEach(item => {
+                    addNewItem(item.name, item.amount, item.category);
+                });
+            }
+        } catch (error) {
+            console.error('Error processing receipt:', error);
+        }
+    }
+    
+    function confirmReceipt() {
+        const receiptData = {
+            store_name: document.getElementById('storeName').value,
+            date: document.getElementById('receiptDate').value,
+            items: receiptItems,
+            totals: {
+                subtotal: parseFloat(document.getElementById('subtotal').textContent.replace(/[$,]/g, '')),
+                tax: parseFloat(document.getElementById('tax').textContent.replace(/[$,]/g, '')),
+                total: parseFloat(document.getElementById('total').textContent.replace(/[$,]/g, ''))
+            }
+        };
+        
+        // Store the receipt data for submission
+        const index = files.indexOf(currentReceipt);
+        if (index !== -1) {
+            files[index].receiptData = receiptData;
+        }
+        
+        // Close the modal
+        bootstrap.Modal.getInstance(document.getElementById('receiptPreviewModal')).hide();
+    }
     }
     
     function displaySelectedFiles() {
@@ -437,6 +677,74 @@ document.addEventListener('DOMContentLoaded', function() {
     border-color: #2196f3;
     transform: scale(1.02);
     transition: all 0.3s ease;
+}
+
+/* Receipt Preview Styles */
+.receipt-image-container {
+    background: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.receipt-image-container img {
+    transition: transform 0.3s ease;
+}
+
+.list-group-item {
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    border-left-color: #2196f3;
+}
+
+.form-floating > .form-control:focus {
+    border-color: #2196f3;
+    box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+}
+
+.input-group-text {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.form-select:focus {
+    border-color: #2196f3;
+    box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+}
+
+/* Category colors */
+.category-groceries { color: #4caf50; }
+.category-food { color: #ff9800; }
+.category-shopping { color: #2196f3; }
+.category-health { color: #f44336; }
+.category-transportation { color: #9c27b0; }
+
+/* Receipt modal enhancements */
+.modal-dialog-scrollable .modal-content {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.btn-light {
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(5px);
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-light:hover {
+    background: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 /* Processing steps styling */
