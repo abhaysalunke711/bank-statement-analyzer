@@ -28,28 +28,26 @@
                 </h3>
                 
                 <form action="{{ url_for('upload_files') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
-                    <div class="upload-area p-4 border rounded bg-light" id="uploadArea">
-                        <!-- Upload Content -->
-                        <div class="upload-content text-center mb-4">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-content text-center">
                             <i id="uploadIcon" class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
                             <h5>Drag & Drop Files Here</h5>
-                            <p class="text-muted mb-4">Bank statements (PDF) or receipts (JPG, PNG)</p>
+                            <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
-                            <button type="button" class="btn btn-primary btn-lg px-4" onclick="document.getElementById('fileInput').click();">
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click();">
                                 <i class="fas fa-folder-open me-2"></i>
                                 Browse Files
                             </button>
                         </div>
-                        
-                        <!-- Selected Files List -->
-                        <div id="selectedFiles" class="border-top pt-4 mt-4" style="display: none;">
-                            <h6 class="mb-3 d-flex align-items-center">
-                                <i class="fas fa-folder-open me-2"></i>
-                                Selected Files
-                                <span class="badge bg-primary ms-2" id="fileCount">0</span>
-                            </h6>
-                            <div id="fileList" class="list-group shadow-sm"></div>
-                        </div>
+                    </div>
+
+                    <!-- Selected Files Display -->
+                    <div id="selectedFiles" class="mt-4 border rounded p-3 bg-light" style="display: none;">
+                        <h6 class="mb-3">
+                            <i class="fas fa-folder-open me-2"></i>
+                            Selected Files
+                        </h6>
+                        <div id="fileList" class="list-group"></div>
                     </div>
                     
                     <!-- Upload Button -->
@@ -338,24 +336,32 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!e.target.files || e.target.files.length === 0) {
             console.log('No files selected');
             files = [];
-            displaySelectedFiles();
-            updateUploadButton();
-            return;
+        } else {
+            console.log('Files selected:', e.target.files.length);
+            
+            // Update the global files array
+            files = Array.from(e.target.files);
+            console.log('Files array updated:', files.length, 'files');
+            
+            // Filter allowed file types
+            files = files.filter(file => {
+                const type = file.type.toLowerCase();
+                const isPDF = type === 'application/pdf';
+                const isImage = type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
+                return isPDF || isImage;
+            });
+            
+            // Show preview for image files
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    previewReceipt(file);
+                }
+            });
         }
         
-        console.log('Files selected:', e.target.files.length);
-        console.log('Selected files:', Array.from(e.target.files).map(f => ({
-            name: f.name,
-            type: f.type,
-            size: f.size
-        })));
-        
-        // Update the global files array
-        files = Array.from(e.target.files);
-        console.log('Files array updated:', files.length, 'files');
-        
-        // Handle the files
-        handleFiles(files);
+        // Update UI
+        displaySelectedFiles();
+        updateUploadButton();
     });
     
     // Additional safety - ensure file input is properly reset when needed
@@ -552,11 +558,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const selectedFiles = document.getElementById('selectedFiles');
         const fileList = document.getElementById('fileList');
-        const fileCount = document.getElementById('fileCount');
         
-        console.log('Elements:', { selectedFiles, fileList, fileCount });
+        console.log('Elements:', { selectedFiles, fileList });
         
-        if (!selectedFiles || !fileList || !fileCount) {
+        if (!selectedFiles || !fileList) {
             console.error('Required elements not found!');
             return;
         }
@@ -564,13 +569,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (files.length === 0) {
             console.log('No files selected, hiding container');
             selectedFiles.style.display = 'none';
-            fileCount.textContent = '0';
             return;
         }
         
         console.log('Files selected, showing container');
         selectedFiles.style.display = 'block';
-        fileCount.textContent = files.length.toString();
         fileList.innerHTML = '';
         
         // Group files by type
@@ -671,14 +674,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     window.removeFile = function(index) {
+        console.log('Removing file at index:', index);
+        console.log('Files before removal:', files);
+        
         files.splice(index, 1);
-        displaySelectedFiles();
-        updateUploadButton();
+        console.log('Files after removal:', files);
         
         // Update file input
         const dt = new DataTransfer();
         files.forEach(file => dt.items.add(file));
         fileInput.files = dt.files;
+        
+        // Update UI
+        displaySelectedFiles();
+        updateUploadButton();
     };
     
     function formatFileSize(bytes) {
