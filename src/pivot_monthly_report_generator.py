@@ -461,48 +461,66 @@ class PivotMonthlyReportGenerator:
         Returns:
             Dictionary with data formatted for Chart.js
         """
-        pivot_data = self._organize_pivot_data(transactions)
+        if not transactions:
+            return {}
+
+        # Classify transactions
+        classified_transactions = self.income_expense_analyzer.classify_transactions(transactions)
+        pivot_data = self._organize_pivot_data(classified_transactions)
         
-        if not pivot_data:
+        if not pivot_data or not pivot_data.get('months'):
             return {}
         
         # Format months for display (e.g., "Jan 2024")
         formatted_months = self._format_month_headers(pivot_data['months'])
         
-        # Format expense data
-        expense_categories = []
-        for category in sorted(pivot_data['expense_data'].keys()):
-            category_data = pivot_data['expense_data'][category]
-            values = []
-            for month in pivot_data['months']:
-                values.append(category_data.get(month, 0))
-            expense_categories.append({
-                'name': category,
-                'values': values
-            })
+        result = {}
         
-        # Format income data
-        income_sources = []
-        for category in sorted(pivot_data['income_data'].keys()):
-            category_data = pivot_data['income_data'][category]
-            values = []
-            for month in pivot_data['months']:
-                values.append(category_data.get(month, 0))
-            income_sources.append({
-                'name': category,
-                'values': values
-            })
+        # Format expense data if there are any expenses
+        if pivot_data.get('expense_data'):
+            expense_categories = []
+            for category in sorted(pivot_data['expense_data'].keys()):
+                category_data = pivot_data['expense_data'][category]
+                values = []
+                total = 0
+                for month in pivot_data['months']:
+                    amount = category_data.get(month, 0)
+                    values.append(amount)
+                    total += amount
+                if total > 0:  # Only include categories with non-zero totals
+                    expense_categories.append({
+                        'name': category,
+                        'values': values
+                    })
+            if expense_categories:  # Only include expenses if there are valid categories
+                result['expenses'] = {
+                    'months': formatted_months,
+                    'categories': expense_categories
+                }
         
-        return {
-            'expenses': {
-                'months': formatted_months,
-                'categories': expense_categories
-            },
-            'income': {
-                'months': formatted_months,
-                'sources': income_sources
-            }
-        }
+        # Format income data if there are any incomes
+        if pivot_data.get('income_data'):
+            income_sources = []
+            for category in sorted(pivot_data['income_data'].keys()):
+                category_data = pivot_data['income_data'][category]
+                values = []
+                total = 0
+                for month in pivot_data['months']:
+                    amount = category_data.get(month, 0)
+                    values.append(amount)
+                    total += amount
+                if total > 0:  # Only include categories with non-zero totals
+                    income_sources.append({
+                        'name': category,
+                        'values': values
+                    })
+            if income_sources:  # Only include income if there are valid sources
+                result['income'] = {
+                    'months': formatted_months,
+                    'sources': income_sources
+                }
+        
+        return result
 
     def _clean_amount(self, amount_str) -> float:
         """Convert amount string to float."""

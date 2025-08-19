@@ -58,7 +58,9 @@
         </div>
 
         <!-- Charts Section -->
+        {% if results.chart_data and (results.chart_data.expenses or results.chart_data.income) %}
         <div class="row mb-5">
+            {% if results.chart_data.expenses and results.chart_data.expenses.categories %}
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header bg-primary text-white">
@@ -74,6 +76,8 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
+            {% if results.chart_data.income and results.chart_data.income.sources %}
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header bg-success text-white">
@@ -89,7 +93,9 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
+        {% endif %}
 
         <!-- Processed Files Section -->
         <div id="processed-files" class="card mb-5">
@@ -503,36 +509,34 @@ if (typeof pdfjsLib !== 'undefined') {
 let expensesChart = null;
 let incomeChart = null;
 
-function initializeCharts() {
-    const expensesCtx = document.getElementById('expensesChart').getContext('2d');
-    const incomeCtx = document.getElementById('incomeChart').getContext('2d');
-
-    // Common chart options
-    const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    callback: function(value) {
-                        return '₹' + value.toLocaleString();
-                    }
-                }
-            }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
-                    }
+// Common chart options
+const commonChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+        y: {
+            beginAtZero: true,
+            ticks: {
+                callback: function(value) {
+                    return '₹' + value.toLocaleString();
                 }
             }
         }
-    };
+    },
+    plugins: {
+        tooltip: {
+            callbacks: {
+                label: function(context) {
+                    return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
+                }
+            }
+        }
+    }
+};
 
-    // Initialize Expenses Chart
+// Initialize Expenses Chart
+function initializeExpensesChart() {
+    const expensesCtx = document.getElementById('expensesChart').getContext('2d');
     expensesChart = new Chart(expensesCtx, {
         type: 'line',
         data: {
@@ -540,9 +544,9 @@ function initializeCharts() {
             datasets: [] // Will be populated with expense categories
         },
         options: {
-            ...commonOptions,
+            ...commonChartOptions,
             plugins: {
-                ...commonOptions.plugins,
+                ...commonChartOptions.plugins,
                 title: {
                     display: true,
                     text: 'Monthly Expenses by Category'
@@ -550,8 +554,11 @@ function initializeCharts() {
             }
         }
     });
+}
 
-    // Initialize Income Chart
+// Initialize Income Chart
+function initializeIncomeChart() {
+    const incomeCtx = document.getElementById('incomeChart').getContext('2d');
     incomeChart = new Chart(incomeCtx, {
         type: 'line',
         data: {
@@ -559,9 +566,9 @@ function initializeCharts() {
             datasets: [] // Will be populated with income sources
         },
         options: {
-            ...commonOptions,
+            ...commonChartOptions,
             plugins: {
-                ...commonOptions.plugins,
+                ...commonChartOptions.plugins,
                 title: {
                     display: true,
                     text: 'Monthly Income by Source'
@@ -571,35 +578,34 @@ function initializeCharts() {
     });
 }
 
-// Function to update charts with new data
-function updateCharts(data) {
-    if (!data) return;
+// Function to update expenses chart
+function updateExpensesChart(data) {
+    if (!data || !data.categories || !expensesChart) return;
 
-    // Update Expenses Chart
-    if (data.expenses) {
-        expensesChart.data.labels = data.expenses.months;
-        expensesChart.data.datasets = data.expenses.categories.map((category, index) => ({
-            label: category.name,
-            data: category.values,
-            borderColor: getChartColor(index),
-            backgroundColor: getChartColor(index, 0.1),
-            tension: 0.4
-        }));
-        expensesChart.update();
-    }
+    expensesChart.data.labels = data.months;
+    expensesChart.data.datasets = data.categories.map((category, index) => ({
+        label: category.name,
+        data: category.values,
+        borderColor: getChartColor(index),
+        backgroundColor: getChartColor(index, 0.1),
+        tension: 0.4
+    }));
+    expensesChart.update();
+}
 
-    // Update Income Chart
-    if (data.income) {
-        incomeChart.data.labels = data.income.months;
-        incomeChart.data.datasets = data.income.sources.map((source, index) => ({
-            label: source.name,
-            data: source.values,
-            borderColor: getChartColor(index + 5), // Offset to get different colors
-            backgroundColor: getChartColor(index + 5, 0.1),
-            tension: 0.4
-        }));
-        incomeChart.update();
-    }
+// Function to update income chart
+function updateIncomeChart(data) {
+    if (!data || !data.sources || !incomeChart) return;
+
+    incomeChart.data.labels = data.months;
+    incomeChart.data.datasets = data.sources.map((source, index) => ({
+        label: source.name,
+        data: source.values,
+        borderColor: getChartColor(index + 5), // Offset to get different colors
+        backgroundColor: getChartColor(index + 5, 0.1),
+        tension: 0.4
+    }));
+    incomeChart.update();
 }
 
 // Helper function to generate chart colors
@@ -618,12 +624,18 @@ function getChartColor(index, alpha = 1) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize charts
-    initializeCharts();
-    
-    // Update charts with data from Flask
+    // Initialize and update charts only if data is available
     const chartData = {{ results.chart_data | tojson | safe }};
-    updateCharts(chartData);
+    if (chartData && (chartData.expenses || chartData.income)) {
+        if (chartData.expenses && document.getElementById('expensesChart')) {
+            initializeExpensesChart();
+            updateExpensesChart(chartData.expenses);
+        }
+        if (chartData.income && document.getElementById('incomeChart')) {
+            initializeIncomeChart();
+            updateIncomeChart(chartData.income);
+        }
+    }
 
     // Initialize tooltips for truncated text
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
