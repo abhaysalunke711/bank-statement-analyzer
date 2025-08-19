@@ -20,6 +20,7 @@ from monthly_report_generator import MonthlyReportGenerator
 from enhanced_monthly_report_generator import EnhancedMonthlyReportGenerator
 from pivot_monthly_report_generator import PivotMonthlyReportGenerator
 from excel_viewer import ExcelViewer
+from receipt_processor import ReceiptProcessor
 
 app = Flask(__name__)
 app.secret_key = 'bank_analyzer_secret_key_2024'  # Change this in production
@@ -129,7 +130,39 @@ def upload_files():
         categorized_transactions = analyzer.keyword_matcher.batch_categorize(transactions)
         
         # Create pivot-style Excel report with color coding
-        excel_path = pivot_generator.create_pivot_excel_report(categorized_transactions)
+        # Extract receipt data from uploaded files
+        receipt_data = []
+        for file_info in uploaded_file_info:
+            file_path = os.path.join(UPLOAD_FOLDER, file_info['actual_filename'])
+            if file_path.lower().endswith(('.jpg', '.jpeg', '.png')):
+                try:
+                    # Process receipt image
+                    receipt_processor = ReceiptProcessor(output_dir=OUTPUT_FOLDER)
+                    receipt = receipt_processor.process_image(file_path)
+                    receipt_data.append({
+                        'date': receipt.date.strftime('%Y-%m-%d'),
+                        'store_name': receipt.store_name,
+                        'items': [
+                            {
+                                'name': item.name,
+                                'amount': str(item.amount),
+                                'quantity': str(item.quantity),
+                                'category': item.category
+                            }
+                            for item in receipt.items
+                        ],
+                        'totals': {
+                            'total': str(receipt.total_amount)
+                        }
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not process receipt {file_path}: {e}")
+        
+        # Create pivot-style Excel report with color coding
+        excel_path = pivot_generator.create_pivot_excel_report(
+            categorized_transactions,
+            receipt_data=receipt_data
+        )
         
         # Get chart data for visualization
         chart_data = pivot_generator.get_chart_data(categorized_transactions)
@@ -344,6 +377,59 @@ def internal_error(e):
     logger.error(f"Internal error: {e}")
     flash('An internal error occurred. Please try again.', 'error')
     return redirect(url_for('index'))
+
+@app.route('/api/process_receipt', methods=['POST'])
+def process_receipt():
+    """Process receipt image using OCR."""
+    try:
+        if 'receipt' not in request.files:
+            return jsonify({'error': 'No receipt file provided'}), 400
+        
+        file = request.files['receipt']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Check if it's an image file
+        if not file.filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+            return jsonify({'error': 'Invalid file type. Only JPG and PNG are allowed'}), 400
+        
+        # Save the file temporarily
+        temp_path = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
+        file.save(temp_path)
+        
+        try:
+            # Process the receipt
+            receipt_processor = ReceiptProcessor(output_dir=OUTPUT_FOLDER)
+            receipt = receipt_processor.process_image(temp_path)
+            
+            # Format response data
+            response_data = {
+                'store_name': receipt.store_name,
+                'date': receipt.date.strftime('%Y-%m-%d'),
+                'items': [
+                    {
+                        'name': item.name,
+                        'amount': str(item.amount),
+                        'quantity': str(item.quantity),
+                        'category': item.category
+                    }
+                    for item in receipt.items
+                ],
+                'total_amount': str(receipt.total_amount)
+            }
+            
+            return jsonify(response_data)
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+            
+    except Exception as e:
+        logger.error(f"Error processing receipt: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("🏦 Bank Statement Analyzer Web App")

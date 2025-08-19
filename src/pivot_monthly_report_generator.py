@@ -24,13 +24,14 @@ class PivotMonthlyReportGenerator:
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
     
-    def create_pivot_excel_report(self, transactions: List[Dict], filename: str = None) -> str:
+    def create_pivot_excel_report(self, transactions: List[Dict], filename: str = None, receipt_data: List[Dict] = None) -> str:
         """
         Create a pivot-style Excel file with items as rows and months as columns.
         
         Args:
             transactions: List of categorized transactions
             filename: Custom filename for the Excel file
+            receipt_data: Optional list of receipt data dictionaries
             
         Returns:
             Path to created Excel file
@@ -61,6 +62,10 @@ class PivotMonthlyReportGenerator:
             
             # Create the pivot sheet
             self._create_pivot_sheet(workbook, pivot_data, formats)
+            
+            # Create receipts sheet if receipt data is provided
+            if receipt_data:
+                self._create_receipts_sheet(workbook, receipt_data, formats)
             
             workbook.close()
             
@@ -433,6 +438,70 @@ class PivotMonthlyReportGenerator:
             worksheet.write(row, 1, value, formats['column_header'])
             row += 1
     
+    def _create_receipts_sheet(self, workbook, receipt_data: List[Dict], formats: Dict):
+        """Create a sheet for receipt details."""
+        worksheet = workbook.add_worksheet('Receipts')
+        
+        # Set column widths
+        worksheet.set_column(0, 0, 15)  # Date
+        worksheet.set_column(1, 1, 25)  # Store
+        worksheet.set_column(2, 2, 35)  # Item
+        worksheet.set_column(3, 3, 15)  # Category
+        worksheet.set_column(4, 4, 10)  # Quantity
+        worksheet.set_column(5, 5, 12)  # Amount
+        worksheet.set_column(6, 6, 15)  # Receipt Total
+        
+        # Write headers
+        headers = ['Date', 'Store', 'Item', 'Category', 'Quantity', 'Amount', 'Receipt Total']
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header, formats['column_header'])
+        
+        # Write receipt data
+        row = 1
+        for receipt in receipt_data:
+            receipt_date = receipt.get('date', '')
+            store_name = receipt.get('store_name', '')
+            total_amount = receipt.get('totals', {}).get('total', 0)
+            
+            # Write each item from the receipt
+            for item in receipt.get('items', []):
+                worksheet.write(row, 0, receipt_date)  # Date
+                worksheet.write(row, 1, store_name)    # Store
+                worksheet.write(row, 2, item.get('name', ''))  # Item
+                worksheet.write(row, 3, item.get('category', 'Uncategorized'))  # Category
+                worksheet.write(row, 4, float(item.get('quantity', 1)))  # Quantity
+                worksheet.write(row, 5, float(item.get('amount', 0)))  # Amount
+                worksheet.write(row, 6, float(total_amount))  # Receipt Total
+                row += 1
+        
+        # Add totals row
+        total_row = row
+        worksheet.write(total_row, 0, 'TOTAL', formats['summary_label'])
+        worksheet.write_formula(total_row, 5, f'=SUM(F2:F{row})', formats['summary_amount'])
+        
+        # Add autofilter
+        worksheet.autofilter(0, 0, row - 1, len(headers) - 1)
+        
+        # Add conditional formatting for categories
+        categories = {
+            'Groceries': '#4CAF50',
+            'Food': '#FF9800',
+            'Shopping': '#2196F3',
+            'Health': '#F44336',
+            'Transportation': '#9C27B0'
+        }
+        
+        for category, color in categories.items():
+            worksheet.conditional_format(1, 3, row - 1, 3, {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': category,
+                'format': workbook.add_format({
+                    'font_color': color,
+                    'bold': True
+                })
+            })
+
     def _format_month_headers(self, months: List[str]) -> List[str]:
         """Format month-year strings for column headers."""
         formatted_headers = []
