@@ -35,11 +35,11 @@
                             <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-danger" onclick="setFileType('pdf'); document.getElementById('fileInput').click();">
+                                <button type="button" class="btn btn-danger" onclick="selectBankStatement()">
                                     <i class="fas fa-file-pdf me-2"></i>
                                     Add Bank Statement
                                 </button>
-                                <button type="button" class="btn btn-success" onclick="setFileType('image'); document.getElementById('fileInput').click();">
+                                <button type="button" class="btn btn-success" onclick="selectReceipt()">
                                     <i class="fas fa-receipt me-2"></i>
                                     Add Receipt
                                 </button>
@@ -200,26 +200,30 @@
 {% block extra_js %}
 <script>
 // Global functions for file handling
-let currentFileType = 'all';
-let fileInput;
-
-function setFileType(type) {
-    currentFileType = type;
-    fileInput = document.getElementById('fileInput');
-    fileInput.accept = type === 'pdf' ? '.pdf' : 
-                      type === 'image' ? '.jpg,.jpeg,.png' : 
-                      '.pdf,.jpg,.jpeg,.png';
+function selectBankStatement() {
+    const fileInput = document.getElementById('fileInput');
+    fileInput.accept = '.pdf';
     updateUploadAreaText();
+    fileInput.click();
+}
+
+function selectReceipt() {
+    const fileInput = document.getElementById('fileInput');
+    fileInput.accept = '.jpg,.jpeg,.png';
+    updateUploadAreaText();
+    fileInput.click();
 }
 
 function updateUploadAreaText() {
     const heading = document.querySelector('.upload-content h5');
     const subtext = document.querySelector('.upload-content p.text-muted');
+    const fileInput = document.getElementById('fileInput');
+    const currentAccept = fileInput.accept;
     
-    if (currentFileType === 'pdf') {
+    if (currentAccept === '.pdf') {
         heading.textContent = 'Drag & Drop Bank Statements Here';
         subtext.textContent = 'PDF files only';
-    } else if (currentFileType === 'image') {
+    } else if (currentAccept === '.jpg,.jpeg,.png') {
         heading.textContent = 'Drag & Drop Receipts Here';
         subtext.textContent = 'Image files (JPG, PNG)';
     } else {
@@ -270,6 +274,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+
+    
     // Upload area click (excluding the button area)
     uploadArea.addEventListener('click', function(e) {
         // Don't trigger if clicking on any button
@@ -277,7 +283,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         // Reset to accept all file types when clicking the general area
-        setFileType('all');
+        fileInput.accept = '.pdf,.jpg,.jpeg,.png';
+        updateUploadAreaText();
         fileInput.click();
     });
     
@@ -343,24 +350,27 @@ document.addEventListener('DOMContentLoaded', function() {
     let receiptItems = [];
     
     function handleFiles(newFiles) {
-        // Filter files based on current type
+        // Filter allowed file types
         const allowedFiles = newFiles.filter(file => {
             const type = file.type.toLowerCase();
-            if (currentFileType === 'pdf') {
-                return type === 'application/pdf';
-            } else if (currentFileType === 'image') {
-                return type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
+            const isPDF = type === 'application/pdf';
+            const isImage = type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
+            
+            // Check if file matches the current accept attribute
+            const currentAccept = fileInput.accept;
+            if (currentAccept === '.pdf') {
+                return isPDF;
+            } else if (currentAccept === '.jpg,.jpeg,.png') {
+                return isImage;
             } else {
-                return type === 'application/pdf' || 
-                       type === 'image/jpeg' || 
-                       type === 'image/jpg' || 
-                       type === 'image/png';
+                return isPDF || isImage;
             }
         });
         
         if (allowedFiles.length !== newFiles.length) {
-            const expectedType = currentFileType === 'pdf' ? 'PDF files' : 
-                               currentFileType === 'image' ? 'image files (JPG, PNG)' : 
+            const currentAccept = fileInput.accept;
+            const expectedType = currentAccept === '.pdf' ? 'PDF files' : 
+                               currentAccept === '.jpg,.jpeg,.png' ? 'image files (JPG, PNG)' : 
                                'PDF and image files';
             alert(`Only ${expectedType} are allowed. Other files have been filtered out.`);
         }
