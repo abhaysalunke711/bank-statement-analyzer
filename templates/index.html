@@ -35,11 +35,11 @@
                             <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-danger" onclick="selectBankStatement()">
+                                <button type="button" class="btn btn-danger" onclick="console.log('Bank Statement button clicked'); selectBankStatement();">
                                     <i class="fas fa-file-pdf me-2"></i>
                                     Add Bank Statement
                                 </button>
-                                <button type="button" class="btn btn-success" onclick="selectReceipt()">
+                                <button type="button" class="btn btn-success" onclick="console.log('Receipt button clicked'); selectReceipt();">
                                     <i class="fas fa-receipt me-2"></i>
                                     Add Receipt
                                 </button>
@@ -201,35 +201,69 @@
 <script>
 // Global functions for file handling
 function selectBankStatement() {
+    console.log('selectBankStatement called');
     const fileInput = document.getElementById('fileInput');
+    console.log('fileInput element:', fileInput);
+    if (!fileInput) {
+        console.error('fileInput element not found!');
+        return;
+    }
+    console.log('Setting accept to PDF');
     fileInput.accept = '.pdf';
+    console.log('Current accept value:', fileInput.accept);
     updateUploadAreaText();
+    console.log('Triggering file input click');
     fileInput.click();
 }
 
 function selectReceipt() {
+    console.log('selectReceipt called');
     const fileInput = document.getElementById('fileInput');
+    console.log('fileInput element:', fileInput);
+    if (!fileInput) {
+        console.error('fileInput element not found!');
+        return;
+    }
+    console.log('Setting accept to image types');
     fileInput.accept = '.jpg,.jpeg,.png';
+    console.log('Current accept value:', fileInput.accept);
     updateUploadAreaText();
+    console.log('Triggering file input click');
     fileInput.click();
 }
 
 function updateUploadAreaText() {
+    console.log('updateUploadAreaText called');
     const heading = document.querySelector('.upload-content h5');
+    console.log('heading element:', heading);
     const subtext = document.querySelector('.upload-content p.text-muted');
+    console.log('subtext element:', subtext);
     const fileInput = document.getElementById('fileInput');
+    console.log('fileInput element:', fileInput);
+    
+    if (!heading || !subtext || !fileInput) {
+        console.error('Required elements not found!');
+        return;
+    }
+    
     const currentAccept = fileInput.accept;
+    console.log('Current accept value:', currentAccept);
     
     if (currentAccept === '.pdf') {
+        console.log('Setting text for PDF mode');
         heading.textContent = 'Drag & Drop Bank Statements Here';
         subtext.textContent = 'PDF files only';
     } else if (currentAccept === '.jpg,.jpeg,.png') {
+        console.log('Setting text for image mode');
         heading.textContent = 'Drag & Drop Receipts Here';
         subtext.textContent = 'Image files (JPG, PNG)';
     } else {
+        console.log('Setting text for default mode');
         heading.textContent = 'Drag & Drop Files Here';
         subtext.textContent = 'Bank statements (PDF) or receipts (JPG, PNG)';
     }
+    console.log('Updated heading:', heading.textContent);
+    console.log('Updated subtext:', subtext.textContent);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -331,8 +365,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // File input change
     fileInput.addEventListener('change', function(e) {
-        console.log('File input changed, files selected:', e.target.files.length);
+        console.log('File input change event triggered');
+        console.log('Event target:', e.target);
+        console.log('Files selected:', e.target.files.length);
+        console.log('Current accept value:', fileInput.accept);
+        
         const selectedFiles = Array.from(e.target.files);
+        console.log('Selected files:', selectedFiles.map(f => ({
+            name: f.name,
+            type: f.type,
+            size: f.size
+        })));
+        
         handleFiles(selectedFiles);
     });
     
@@ -350,21 +394,32 @@ document.addEventListener('DOMContentLoaded', function() {
     let receiptItems = [];
     
     function handleFiles(newFiles) {
+        console.log('handleFiles called with', newFiles.length, 'files');
+        console.log('Current fileInput.accept:', fileInput.accept);
+        
         // Filter allowed file types
         const allowedFiles = newFiles.filter(file => {
             const type = file.type.toLowerCase();
+            console.log('Processing file:', file.name, 'type:', type);
+            
             const isPDF = type === 'application/pdf';
             const isImage = type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
+            console.log('isPDF:', isPDF, 'isImage:', isImage);
             
             // Check if file matches the current accept attribute
             const currentAccept = fileInput.accept;
+            let isAllowed;
             if (currentAccept === '.pdf') {
-                return isPDF;
+                isAllowed = isPDF;
+                console.log('PDF mode - file allowed:', isAllowed);
             } else if (currentAccept === '.jpg,.jpeg,.png') {
-                return isImage;
+                isAllowed = isImage;
+                console.log('Image mode - file allowed:', isAllowed);
             } else {
-                return isPDF || isImage;
+                isAllowed = isPDF || isImage;
+                console.log('All types mode - file allowed:', isAllowed);
             }
+            return isAllowed;
         });
         
         if (allowedFiles.length !== newFiles.length) {
