@@ -237,7 +237,7 @@
                                     category summaries, and detailed transaction lists.
                                 </p>
                                 <a href="{{ url_for('download_file', filename=results.excel_path.split('/')[-1]) }}" 
-                                   class="btn btn-success">
+                                   class="btn btn-primary">
                                     <i class="fas fa-download me-2"></i>
                                     Download Excel
                                 </a>
@@ -258,7 +258,7 @@
                                     with other applications.
                                 </p>
                                 <a href="{{ url_for('download_file', filename=results.csv_path.split('/')[-1]) }}" 
-                                   class="btn btn-info">
+                                   class="btn btn-primary">
                                     <i class="fas fa-download me-2"></i>
                                     Download CSV
                                 </a>
@@ -276,7 +276,7 @@
                     {% for report_type, file_path in results.report_files.items() %}
                     <div class="col-md-4 mb-2">
                         <a href="{{ url_for('download_file', filename=file_path.split('/')[-1]) }}" 
-                           class="btn btn-outline-secondary btn-sm w-100">
+                           class="btn btn-primary btn-sm w-100">
                             <i class="fas fa-{{ 'chart-bar' if 'chart' in report_type else 'file-alt' }} me-1"></i>
                             {{ report_type.replace('_', ' ').title() }}
                         </a>
@@ -379,7 +379,7 @@
                         <i class="fas fa-upload me-2"></i>
                         Upload More Files
                     </a>
-                    <a href="{{ url_for('clear_uploads') }}" class="btn btn-outline-secondary" 
+                    <a href="{{ url_for('clear_uploads') }}" class="btn btn-primary" 
                        onclick="return confirm('This will clear all uploaded files. Continue?')">
                         <i class="fas fa-trash me-2"></i>
                         Clear & Start Over
@@ -473,15 +473,15 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-info" onclick="toggleFullscreen()">
+                <button type="button" class="btn btn-primary" onclick="toggleFullscreen()">
                     <i class="fas fa-expand me-1"></i>
                     Fullscreen
                 </button>
-                <button type="button" class="btn btn-outline-danger" onclick="downloadPDF()">
+                <button type="button" class="btn btn-primary" onclick="downloadPDF()">
                     <i class="fas fa-download me-1"></i>
                     Download PDF
                 </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -1464,6 +1464,49 @@ function animateCards() {
 .clickable-card:hover small {
     opacity: 1;
     color: #007bff;
+}
+
+/* Enhanced Button Styles */
+.btn-primary {
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 25px;
+    font-weight: 600;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+    color: white;
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3);
+}
+
+.btn-primary:focus {
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
+    color: white;
+}
+
+/* Small button variants */
+.btn-sm.btn-primary {
+    padding: 5px 15px;
+    font-size: 0.875rem;
+}
+
+/* Full width button adjustments */
+.btn-primary.w-100 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 /* Loading states */
