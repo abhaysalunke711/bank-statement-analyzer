@@ -485,14 +485,162 @@ def delete_category(name):
         if name not in categories:
             return jsonify({'error': 'Category not found'}), 404
         
+        # Move keywords to uncategorized before deleting
+        keywords = categories[name].get('keywords', [])
         del categories[name]
         
+        # Update uncategorized keywords
+        uncategorized_path = os.path.join('data', 'uncategorized_keywords.json')
+        try:
+            with open(uncategorized_path, 'r') as f:
+                uncategorized = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            uncategorized = []
+        
+        # Add keywords to uncategorized list
+        uncategorized.extend(keywords)
+        uncategorized = list(set(uncategorized))  # Remove duplicates
+        
+        # Save both files
         with open('data/categories.json', 'w') as f:
             json.dump(categories, f, indent=4)
+        
+        with open(uncategorized_path, 'w') as f:
+            json.dump(uncategorized, f, indent=4)
         
         return jsonify({'message': 'Category deleted successfully'})
     except Exception as e:
         logger.error(f"Error deleting category {name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/uncategorized_keywords', methods=['GET'])
+def get_uncategorized_keywords():
+    """Get list of uncategorized keywords."""
+    try:
+        uncategorized_path = os.path.join('data', 'uncategorized_keywords.json')
+        try:
+            with open(uncategorized_path, 'r') as f:
+                keywords = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            keywords = []
+        return jsonify(keywords)
+    except Exception as e:
+        logger.error(f"Error reading uncategorized keywords: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/move_keyword', methods=['POST'])
+def move_keyword():
+    """Move a keyword to a different category."""
+    try:
+        data = request.get_json()
+        if not data or 'keyword' not in data or 'new_category' not in data:
+            return jsonify({'error': 'Keyword and new category are required'}), 400
+        
+        keyword = data['keyword']
+        new_category = data['new_category']
+        
+        # Load categories
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        
+        # Load uncategorized keywords
+        uncategorized_path = os.path.join('data', 'uncategorized_keywords.json')
+        try:
+            with open(uncategorized_path, 'r') as f:
+                uncategorized = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            uncategorized = []
+        
+        # Remove keyword from uncategorized list if it's there
+        if keyword in uncategorized:
+            uncategorized.remove(keyword)
+        
+        # Remove keyword from all categories
+        for cat_name, cat_data in categories.items():
+            if keyword in cat_data.get('keywords', []):
+                cat_data['keywords'].remove(keyword)
+        
+        # Add keyword to new category
+        if new_category in categories:
+            if 'keywords' not in categories[new_category]:
+                categories[new_category]['keywords'] = []
+            if keyword not in categories[new_category]['keywords']:
+                categories[new_category]['keywords'].append(keyword)
+        
+        # Save both files
+        with open('data/categories.json', 'w') as f:
+            json.dump(categories, f, indent=4)
+        
+        with open(uncategorized_path, 'w') as f:
+            json.dump(uncategorized, f, indent=4)
+        
+        return jsonify({'message': 'Keyword moved successfully'})
+    except Exception as e:
+        logger.error(f"Error moving keyword: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories/<category>/keywords/<keyword>', methods=['DELETE'])
+def remove_keyword(category, keyword):
+    """Remove a keyword from a category."""
+    try:
+        # Load categories
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        
+        if category not in categories:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        # Remove keyword from category
+        if keyword in categories[category].get('keywords', []):
+            categories[category]['keywords'].remove(keyword)
+        
+        # Add to uncategorized
+        uncategorized_path = os.path.join('data', 'uncategorized_keywords.json')
+        try:
+            with open(uncategorized_path, 'r') as f:
+                uncategorized = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            uncategorized = []
+        
+        if keyword not in uncategorized:
+            uncategorized.append(keyword)
+        
+        # Save both files
+        with open('data/categories.json', 'w') as f:
+            json.dump(categories, f, indent=4)
+        
+        with open(uncategorized_path, 'w') as f:
+            json.dump(uncategorized, f, indent=4)
+        
+        return jsonify({'message': 'Keyword removed successfully'})
+    except Exception as e:
+        logger.error(f"Error removing keyword: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reanalyze', methods=['POST'])
+def reanalyze():
+    """Reanalyze all transactions with updated categories."""
+    try:
+        # Get list of files in uploads directory
+        uploaded_files = []
+        for filename in os.listdir(UPLOAD_FOLDER):
+            if filename.endswith('.pdf'):
+                uploaded_files.append(os.path.join(UPLOAD_FOLDER, filename))
+        
+        if not uploaded_files:
+            return jsonify({'error': 'No files to analyze'}), 400
+        
+        # Run analysis
+        analyzer = BankStatementAnalyzer(data_dir=UPLOAD_FOLDER)
+        results = analyzer.run_analysis(
+            pdf_files=uploaded_files,
+            create_reports=True,
+            export_csv=True
+        )
+        
+        return jsonify({'message': 'Reanalysis complete', 'results': results})
+    except Exception as e:
+        logger.error(f"Error reanalyzing: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/process_receipt', methods=['POST'])

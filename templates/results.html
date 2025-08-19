@@ -422,6 +422,19 @@
                     </div>
                 </div>
 
+                <!-- Uncategorized Keywords Section -->
+                <div id="uncategorizedSection" class="mb-4" style="display: none;">
+                    <h6 class="mb-3">
+                        <i class="fas fa-question-circle me-2"></i>
+                        Uncategorized Keywords
+                        <small class="text-muted">(Drag keywords to categorize them)</small>
+                    </h6>
+                    <div id="uncategorizedKeywords" class="p-3 bg-light rounded border" 
+                         ondrop="dropKeyword(event)" ondragover="allowDrop(event)">
+                        <!-- Uncategorized keywords will be loaded here -->
+                    </div>
+                </div>
+
                 <!-- Add/Edit Category Form -->
                 <div id="categoryForm" class="border rounded p-3 bg-light" style="display: none;">
                     <h6 class="mb-3">
@@ -466,6 +479,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="reanalyzeWithNewCategories()">
+                    <i class="fas fa-sync me-1"></i>
+                    Apply Changes & Reanalyze
+                </button>
             </div>
         </div>
     </div>
@@ -739,9 +756,16 @@ function showCategoriesModal() {
 // Load categories from server
 async function loadCategories() {
     try {
-        const response = await fetch('/api/categories');
-        const categories = await response.json();
+        const [categoriesResponse, keywordsResponse] = await Promise.all([
+            fetch('/api/categories'),
+            fetch('/api/uncategorized_keywords')
+        ]);
+        
+        const categories = await categoriesResponse.json();
+        const uncategorizedKeywords = await keywordsResponse.json();
+        
         displayCategories(categories);
+        displayUncategorizedKeywords(uncategorizedKeywords);
     } catch (error) {
         console.error('Error loading categories:', error);
         showError('Failed to load categories. Please try again.');
@@ -765,12 +789,21 @@ function displayCategories(categories) {
     const html = Object.entries(categories).map(([name, data]) => `
         <div class="list-group-item">
             <div class="d-flex justify-content-between align-items-start">
-                <div>
+                <div class="flex-grow-1">
                     <h6 class="mb-1">${name}</h6>
                     <p class="mb-1 text-muted small">${data.description || 'No description'}</p>
-                    <div class="keywords">
+                    <div class="keywords-container" 
+                         data-category="${name}"
+                         ondrop="dropKeyword(event)" 
+                         ondragover="allowDrop(event)">
                         ${data.keywords.map(keyword => 
-                            `<span class="badge bg-light text-dark me-1">${keyword}</span>`
+                            `<span class="badge bg-light text-dark me-1 mb-1 keyword-badge" 
+                                   draggable="true" 
+                                   ondragstart="dragKeyword(event)"
+                                   data-keyword="${keyword}">
+                                ${keyword}
+                                <i class="fas fa-times ms-1" onclick="removeKeyword('${name}', '${keyword}')"></i>
+                             </span>`
                         ).join('')}
                     </div>
                 </div>
@@ -787,6 +820,112 @@ function displayCategories(categories) {
     `).join('');
     
     container.innerHTML = html;
+}
+
+// Display uncategorized keywords
+function displayUncategorizedKeywords(keywords) {
+    const container = document.getElementById('uncategorizedKeywords');
+    const section = document.getElementById('uncategorizedSection');
+    
+    if (!keywords || keywords.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    container.innerHTML = keywords.map(keyword => `
+        <span class="badge bg-secondary text-white me-1 mb-1 keyword-badge" 
+              draggable="true" 
+              ondragstart="dragKeyword(event)"
+              data-keyword="${keyword}">
+            ${keyword}
+        </span>
+    `).join('');
+}
+
+// Drag and drop functionality
+function dragKeyword(event) {
+    event.dataTransfer.setData('text/plain', event.target.dataset.keyword);
+}
+
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+function dropKeyword(event) {
+    event.preventDefault();
+    const keyword = event.dataTransfer.getData('text/plain');
+    const targetContainer = event.target.closest('.keywords-container');
+    
+    if (!targetContainer) return;
+    
+    const categoryName = targetContainer.dataset.category;
+    moveKeyword(keyword, categoryName);
+}
+
+// Move keyword between categories
+async function moveKeyword(keyword, newCategory) {
+    try {
+        const response = await fetch('/api/move_keyword', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                keyword: keyword,
+                new_category: newCategory
+            })
+        });
+        
+        if (response.ok) {
+            loadCategories();  // Refresh the display
+            showSuccess('Keyword moved successfully');
+        } else {
+            throw new Error('Failed to move keyword');
+        }
+    } catch (error) {
+        console.error('Error moving keyword:', error);
+        showError('Failed to move keyword. Please try again.');
+    }
+}
+
+// Remove keyword from category
+async function removeKeyword(category, keyword) {
+    if (confirm(`Remove "${keyword}" from category "${category}"?`)) {
+        try {
+            const response = await fetch(`/api/categories/${encodeURIComponent(category)}/keywords/${encodeURIComponent(keyword)}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                loadCategories();  // Refresh the display
+                showSuccess('Keyword removed successfully');
+            } else {
+                throw new Error('Failed to remove keyword');
+            }
+        } catch (error) {
+            console.error('Error removing keyword:', error);
+            showError('Failed to remove keyword. Please try again.');
+        }
+    }
+}
+
+// Reanalyze with new categories
+async function reanalyzeWithNewCategories() {
+    try {
+        const response = await fetch('/api/reanalyze', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            location.reload();  // Refresh the page to show new analysis
+        } else {
+            throw new Error('Failed to reanalyze');
+        }
+    } catch (error) {
+        console.error('Error reanalyzing:', error);
+        showError('Failed to reanalyze with new categories. Please try again.');
+    }
 }
 
 // Toggle category form visibility
@@ -1369,6 +1508,54 @@ function animateCards() {
 </script>
 
 <style>
+/* Keyword badge styling */
+.keyword-badge {
+    cursor: move;
+    user-select: none;
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+    padding: 0.4em 0.6em;
+}
+
+.keyword-badge:hover {
+    background-color: #e9ecef !important;
+    transform: translateY(-1px);
+}
+
+.keyword-badge i {
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.keyword-badge i:hover {
+    opacity: 1;
+    color: #dc3545;
+}
+
+/* Keywords container styling */
+.keywords-container {
+    min-height: 40px;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    background-color: rgba(0,0,0,0.03);
+    margin-top: 0.5rem;
+}
+
+.keywords-container.drag-over {
+    background-color: rgba(0,123,255,0.1);
+    border: 2px dashed #007bff;
+}
+
+/* Uncategorized section styling */
+#uncategorizedKeywords {
+    min-height: 60px;
+    transition: all 0.3s ease;
+}
+
+#uncategorizedKeywords.drag-over {
+    background-color: rgba(0,123,255,0.1) !important;
+    border-color: #007bff !important;
+}
 /* Enhanced table styling */
 .table th {
     position: sticky;
