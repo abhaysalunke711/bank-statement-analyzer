@@ -227,7 +227,22 @@ function getFileTypeLabel(file) {
 // Global variables
 let files = [];
 
+// Debug helper
+function debugElement(id) {
+    const element = document.getElementById(id);
+    console.log(`Element '${id}':`, element);
+    if (element) {
+        console.log(`- display:`, window.getComputedStyle(element).display);
+        console.log(`- visibility:`, window.getComputedStyle(element).visibility);
+        console.log(`- classList:`, element.classList);
+        console.log(`- innerHTML:`, element.innerHTML);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== DOM Content Loaded ===');
+    debugElement('selectedFiles');
+    debugElement('fileList');
     console.log('DOMContentLoaded event fired');
 
     // File upload handling
@@ -331,33 +346,47 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // File input change
     fileInput.addEventListener('change', function(e) {
-        console.log('File input change event triggered');
+        console.log('=== File Input Change Event ===');
+        console.log('Event:', e);
+        console.log('Target:', e.target);
         
         if (!e.target.files || e.target.files.length === 0) {
-            console.log('No files selected');
+            console.log('❌ No files selected');
             files = [];
         } else {
-            console.log('Files selected:', e.target.files.length);
+            console.log('✅ Files selected:', e.target.files.length);
+            console.log('Selected files:', Array.from(e.target.files).map(f => ({
+                name: f.name,
+                type: f.type,
+                size: f.size
+            })));
             
             // Update the global files array
             files = Array.from(e.target.files);
-            console.log('Files array updated:', files.length, 'files');
             
             // Filter allowed file types
+            const originalLength = files.length;
             files = files.filter(file => {
                 const type = file.type.toLowerCase();
                 const isPDF = type === 'application/pdf';
                 const isImage = type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
+                console.log(`File ${file.name}: isPDF=${isPDF}, isImage=${isImage}`);
                 return isPDF || isImage;
             });
+            console.log(`Filtered files: ${files.length} of ${originalLength} kept`);
             
             // Show preview for image files
             files.forEach(file => {
                 if (file.type.startsWith('image/')) {
+                    console.log(`Opening preview for ${file.name}`);
                     previewReceipt(file);
                 }
             });
         }
+        
+        console.log('Updating UI...');
+        debugElement('selectedFiles');
+        debugElement('fileList');
         
         // Update UI
         displaySelectedFiles();
@@ -553,85 +582,103 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function displaySelectedFiles() {
-        console.log('displaySelectedFiles called');
-        console.log('Current files array:', files);
+        console.log('=== Display Selected Files ===');
+        console.log('Files array:', files);
         
         const selectedFiles = document.getElementById('selectedFiles');
         const fileList = document.getElementById('fileList');
         
-        console.log('Elements:', { selectedFiles, fileList });
+        console.log('Before update:');
+        debugElement('selectedFiles');
+        debugElement('fileList');
         
         if (!selectedFiles || !fileList) {
-            console.error('Required elements not found!');
+            console.error('❌ Required elements not found!');
             return;
         }
         
         if (files.length === 0) {
-            console.log('No files selected, hiding container');
+            console.log('❌ No files to display, hiding container');
             selectedFiles.style.display = 'none';
+            fileList.innerHTML = '';
             return;
         }
         
-        console.log('Files selected, showing container');
+        console.log('✅ Displaying', files.length, 'files');
         selectedFiles.style.display = 'block';
         fileList.innerHTML = '';
         
-        // Group files by type
-        const statements = files.filter(isPDF);
-        const receipts = files.filter(isImage);
+        try {
         
-        // Display bank statements
-        if (statements.length > 0) {
-            const statementGroup = document.createElement('div');
-            statementGroup.className = 'mb-3';
-            statementGroup.innerHTML = `
-                <h6 class="mb-2">
-                    <i class="fas fa-file-pdf text-danger me-2"></i>
-                    Bank Statements (${statements.length})
-                </h6>
-            `;
-            statements.forEach((file, index) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-                fileItem.innerHTML = `
-                    <div>
-                        <strong>${file.name}</strong>
-                        <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
-                        <i class="fas fa-times"></i>
-                    </button>
+            // Group files by type
+            const statements = files.filter(isPDF);
+            const receipts = files.filter(isImage);
+            
+            console.log(`Found ${statements.length} statements and ${receipts.length} receipts`);
+            
+            // Display bank statements
+            if (statements.length > 0) {
+                console.log('Creating statements group');
+                const statementGroup = document.createElement('div');
+                statementGroup.className = 'mb-3';
+                statementGroup.innerHTML = `
+                    <h6 class="mb-2">
+                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                        Bank Statements (${statements.length})
+                    </h6>
                 `;
-                statementGroup.appendChild(fileItem);
-            });
-            fileList.appendChild(statementGroup);
-        }
-        
-        // Display receipts
-        if (receipts.length > 0) {
-            const receiptGroup = document.createElement('div');
-            receiptGroup.className = 'mb-3';
-            receiptGroup.innerHTML = `
-                <h6 class="mb-2">
-                    <i class="fas fa-receipt text-success me-2"></i>
-                    Receipts (${receipts.length})
-                </h6>
-            `;
-            receipts.forEach((file, index) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-                fileItem.innerHTML = `
-                    <div>
-                        <strong>${file.name}</strong>
-                        <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-success" onclick="removeFile(${files.indexOf(file)})">
-                        <i class="fas fa-times"></i>
-                    </button>
+                statements.forEach((file, index) => {
+                    console.log(`Adding statement: ${file.name}`);
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    fileItem.innerHTML = `
+                        <div>
+                            <strong>${file.name}</strong>
+                            <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    statementGroup.appendChild(fileItem);
+                });
+                fileList.appendChild(statementGroup);
+            }
+            
+            // Display receipts
+            if (receipts.length > 0) {
+                console.log('Creating receipts group');
+                const receiptGroup = document.createElement('div');
+                receiptGroup.className = 'mb-3';
+                receiptGroup.innerHTML = `
+                    <h6 class="mb-2">
+                        <i class="fas fa-receipt text-success me-2"></i>
+                        Receipts (${receipts.length})
+                    </h6>
                 `;
-                receiptGroup.appendChild(fileItem);
-            });
-            fileList.appendChild(receiptGroup);
+                receipts.forEach((file, index) => {
+                    console.log(`Adding receipt: ${file.name}`);
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    fileItem.innerHTML = `
+                        <div>
+                            <strong>${file.name}</strong>
+                            <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="removeFile(${files.indexOf(file)})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    receiptGroup.appendChild(fileItem);
+                });
+                fileList.appendChild(receiptGroup);
+            }
+            
+            console.log('After update:');
+            debugElement('selectedFiles');
+            debugElement('fileList');
+        } catch (error) {
+            console.error('Error displaying files:', error);
         }
     }
     
