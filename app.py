@@ -515,17 +515,47 @@ def delete_category(name):
 
 @app.route('/api/uncategorized_keywords', methods=['GET'])
 def get_uncategorized_keywords():
-    """Get list of uncategorized keywords."""
+    """Get list of uncategorized keywords and transactions."""
     try:
+        # Get uncategorized keywords
         uncategorized_path = os.path.join('data', 'uncategorized_keywords.json')
         try:
             with open(uncategorized_path, 'r') as f:
                 keywords = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             keywords = []
-        return jsonify(keywords)
+        
+        # Get uncategorized transactions from current analysis
+        uncategorized_transactions = []
+        for filename in os.listdir(UPLOAD_FOLDER):
+            if filename.endswith('.pdf'):
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                analyzer = BankStatementAnalyzer(data_dir=UPLOAD_FOLDER)
+                text = analyzer.pdf_reader.extract_text_from_pdf(file_path)
+                if text:
+                    transactions = analyzer.pdf_reader.extract_transactions(text)
+                    categorized = analyzer.keyword_matcher.batch_categorize(transactions)
+                    uncategorized = [t for t in categorized if t.get('category') == 'Uncategorized']
+                    for t in uncategorized:
+                        t['source_file'] = filename
+                        # Extract potential keywords from description
+                        description = t.get('description', '').lower()
+                        words = [word.strip('.,!?') for word in description.split()]
+                        words = [word for word in words if len(word) > 3]  # Skip short words
+                        t['potential_keywords'] = words
+                    uncategorized_transactions.extend(uncategorized)
+        
+        # Calculate total uncategorized amount
+        total_amount = sum(float(t.get('amount', 0)) for t in uncategorized_transactions)
+        
+        return jsonify({
+            'keywords': keywords,
+            'transactions': uncategorized_transactions,
+            'total_amount': total_amount,
+            'transaction_count': len(uncategorized_transactions)
+        })
     except Exception as e:
-        logger.error(f"Error reading uncategorized keywords: {e}")
+        logger.error(f"Error reading uncategorized data: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/move_keyword', methods=['POST'])
