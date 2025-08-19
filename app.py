@@ -437,8 +437,8 @@ if __name__ == '__main__':
     print("🌐 Starting web server...")
     print("📁 Upload folder:", UPLOAD_FOLDER)
     print("📊 Output folder: output/")
-    print("🔗 Access the app at: http://localhost:5000")
+    print("🔗 Access the app at: http://localhost:8080")
     print("=" * 50)
     
     # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='127.0.0.1', port=8080)
