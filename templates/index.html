@@ -35,11 +35,11 @@
                             <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-danger" onclick="setFileType('pdf'); fileInput.click();">
+                                <button type="button" class="btn btn-danger" id="addBankStatementBtn">
                                     <i class="fas fa-file-pdf me-2"></i>
                                     Add Bank Statement
                                 </button>
-                                <button type="button" class="btn btn-success" onclick="setFileType('image'); fileInput.click();">
+                                <button type="button" class="btn btn-success" id="addReceiptBtn">
                                     <i class="fas fa-receipt me-2"></i>
                                     Add Receipt
                                 </button>
@@ -267,8 +267,41 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         uploadArea.classList.remove('dragover');
         
+        // If we're in a specific file type mode, check the dropped files
         const droppedFiles = Array.from(e.dataTransfer.files);
+        if (currentFileType !== 'all') {
+            const wrongTypeFiles = droppedFiles.filter(file => {
+                const type = file.type.toLowerCase();
+                if (currentFileType === 'pdf') {
+                    return type !== 'application/pdf';
+                } else if (currentFileType === 'image') {
+                    return !['image/jpeg', 'image/jpg', 'image/png'].includes(type);
+                }
+                return false;
+            });
+            
+            if (wrongTypeFiles.length > 0) {
+                const expectedType = currentFileType === 'pdf' ? 'PDF files' : 'image files (JPG, PNG)';
+                alert(`Currently accepting ${expectedType} only. Please use the correct file type or click the upload area to accept all types.`);
+                return;
+            }
+        }
+        
         handleFiles(droppedFiles);
+    });
+    
+    // Add button click handlers
+    const addBankStatementBtn = document.getElementById('addBankStatementBtn');
+    const addReceiptBtn = document.getElementById('addReceiptBtn');
+    
+    addBankStatementBtn.addEventListener('click', function() {
+        setFileType('pdf');
+        fileInput.click();
+    });
+    
+    addReceiptBtn.addEventListener('click', function() {
+        setFileType('image');
+        fileInput.click();
     });
     
     // File input change
