@@ -517,9 +517,9 @@ const commonChartOptions = {
         y: {
             beginAtZero: true,
             ticks: {
-                callback: function(value) {
-                    return '₹' + value.toLocaleString();
-                }
+                                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
             }
         }
     },
@@ -527,7 +527,7 @@ const commonChartOptions = {
         tooltip: {
             callbacks: {
                 label: function(context) {
-                    return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
+                    return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
                 }
             }
         }
