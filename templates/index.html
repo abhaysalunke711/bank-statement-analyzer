@@ -42,8 +42,8 @@
                     </div>
                     
                     <!-- Selected Files Display -->
-                    <div id="selectedFiles" class="mt-3" style="display: none;">
-                        <h6>Selected Files:</h6>
+                    <div id="selectedFiles" class="mt-4 border rounded p-3 bg-light" style="display: none;">
+                        <h6 class="mb-3">Selected Files:</h6>
                         <div id="fileList" class="list-group"></div>
                     </div>
                     
@@ -321,18 +321,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // File input change
     fileInput.addEventListener('change', function(e) {
         console.log('File input change event triggered');
-        console.log('Event target:', e.target);
         console.log('Files selected:', e.target.files.length);
-        console.log('Current accept value:', fileInput.accept);
         
-        const selectedFiles = Array.from(e.target.files);
-        console.log('Selected files:', selectedFiles.map(f => ({
-            name: f.name,
-            type: f.type,
-            size: f.size
-        })));
+        // Update the global files array
+        files = Array.from(e.target.files);
+        console.log('Files array updated:', files.length, 'files');
         
-        handleFiles(selectedFiles);
+        // Handle the files
+        handleFiles(files);
+        
+        // Update the UI
+        displaySelectedFiles();
+        updateUploadButton();
     });
     
     // Additional safety - ensure file input is properly reset when needed
@@ -361,14 +361,17 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Only PDF bank statements and image receipts (JPG, PNG) are allowed. Other files have been filtered out.');
         }
         
+        // Update the global files array with allowed files
+        files = allowedFiles;
+        
         // Show preview for image files
-        allowedFiles.forEach(file => {
+        files.forEach(file => {
             if (file.type.startsWith('image/')) {
                 previewReceipt(file);
             }
         });
         
-        files = allowedFiles;
+        // Update the UI
         displaySelectedFiles();
         updateUploadButton();
     }
