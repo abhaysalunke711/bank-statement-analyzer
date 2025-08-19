@@ -7,6 +7,11 @@ import os
 import cv2
 import numpy as np
 import easyocr
+import pytesseract
+
+# Set Tesseract path for Windows
+if os.name == 'nt':  # Windows
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 import re
