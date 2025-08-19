@@ -34,26 +34,15 @@
                             <h5>Drag & Drop Files Here</h5>
                             <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-primary" id="browseBtn">
-                                    <i class="fas fa-folder-open me-2"></i>
-                                    Browse Files
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-danger" onclick="setFileType('pdf'); fileInput.click();">
+                                    <i class="fas fa-file-pdf me-2"></i>
+                                    Add Bank Statement
                                 </button>
-                                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
-                                    <span class="visually-hidden">Toggle Dropdown</span>
+                                <button type="button" class="btn btn-success" onclick="setFileType('image'); fileInput.click();">
+                                    <i class="fas fa-receipt me-2"></i>
+                                    Add Receipt
                                 </button>
-                                <ul class="dropdown-menu">
-                                    <li>
-                                        <a class="dropdown-item" href="#" onclick="document.getElementById('fileInput').accept='.pdf'; document.getElementById('fileInput').click();">
-                                            <i class="fas fa-file-pdf me-2 text-danger"></i>Bank Statements (PDF)
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#" onclick="document.getElementById('fileInput').accept='.jpg,.jpeg,.png'; document.getElementById('fileInput').click();">
-                                            <i class="fas fa-receipt me-2 text-success"></i>Receipts (Image)
-                                        </a>
-                                    </li>
-                                </ul>
                             </div>
                         </div>
                     </div>
@@ -223,19 +212,43 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let files = [];
     
-    // Browse button click - primary file selection method
-    browseBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        fileInput.click();
-    });
+    // File type tracking
+    let currentFileType = 'all'; // 'all', 'pdf', or 'image'
+    
+    // Update file input accept attribute
+    function setFileType(type) {
+        currentFileType = type;
+        fileInput.accept = type === 'pdf' ? '.pdf' : 
+                          type === 'image' ? '.jpg,.jpeg,.png' : 
+                          '.pdf,.jpg,.jpeg,.png';
+        updateUploadAreaText();
+    }
+    
+    // Update upload area text based on file type
+    function updateUploadAreaText() {
+        const heading = document.querySelector('.upload-content h5');
+        const subtext = document.querySelector('.upload-content p.text-muted');
+        
+        if (currentFileType === 'pdf') {
+            heading.textContent = 'Drag & Drop Bank Statements Here';
+            subtext.textContent = 'PDF files only';
+        } else if (currentFileType === 'image') {
+            heading.textContent = 'Drag & Drop Receipts Here';
+            subtext.textContent = 'Image files (JPG, PNG)';
+        } else {
+            heading.textContent = 'Drag & Drop Files Here';
+            subtext.textContent = 'Bank statements (PDF) or receipts (JPG, PNG)';
+        }
+    }
     
     // Upload area click (excluding the button area)
     uploadArea.addEventListener('click', function(e) {
-        // Don't trigger if clicking on the browse button or its children
-        if (e.target === browseBtn || browseBtn.contains(e.target)) {
+        // Don't trigger if clicking on any button
+        if (e.target.closest('button')) {
             return;
         }
+        // Reset to accept all file types when clicking the general area
+        setFileType('all');
         fileInput.click();
     });
     
@@ -279,17 +292,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let receiptItems = [];
     
     function handleFiles(newFiles) {
-        // Filter allowed file types
+        // Filter files based on current type
         const allowedFiles = newFiles.filter(file => {
             const type = file.type.toLowerCase();
-            return type === 'application/pdf' || 
-                   type === 'image/jpeg' || 
-                   type === 'image/jpg' || 
-                   type === 'image/png';
+            if (currentFileType === 'pdf') {
+                return type === 'application/pdf';
+            } else if (currentFileType === 'image') {
+                return type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png';
+            } else {
+                return type === 'application/pdf' || 
+                       type === 'image/jpeg' || 
+                       type === 'image/jpg' || 
+                       type === 'image/png';
+            }
         });
         
         if (allowedFiles.length !== newFiles.length) {
-            alert('Only PDF and image files (JPG, PNG) are allowed. Other files have been filtered out.');
+            const expectedType = currentFileType === 'pdf' ? 'PDF files' : 
+                               currentFileType === 'image' ? 'image files (JPG, PNG)' : 
+                               'PDF and image files';
+            alert(`Only ${expectedType} are allowed. Other files have been filtered out.`);
         }
         
         // Show preview for image files
