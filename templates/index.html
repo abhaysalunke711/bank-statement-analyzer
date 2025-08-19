@@ -35,11 +35,11 @@
                             <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
                             <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-danger" id="addBankStatementBtn">
+                                <button type="button" class="btn btn-danger" onclick="setFileType('pdf'); document.getElementById('fileInput').click();">
                                     <i class="fas fa-file-pdf me-2"></i>
                                     Add Bank Statement
                                 </button>
-                                <button type="button" class="btn btn-success" id="addReceiptBtn">
+                                <button type="button" class="btn btn-success" onclick="setFileType('image'); document.getElementById('fileInput').click();">
                                     <i class="fas fa-receipt me-2"></i>
                                     Add Receipt
                                 </button>
@@ -199,6 +199,35 @@
 
 {% block extra_js %}
 <script>
+// Global functions for file handling
+let currentFileType = 'all';
+let fileInput;
+
+function setFileType(type) {
+    currentFileType = type;
+    fileInput = document.getElementById('fileInput');
+    fileInput.accept = type === 'pdf' ? '.pdf' : 
+                      type === 'image' ? '.jpg,.jpeg,.png' : 
+                      '.pdf,.jpg,.jpeg,.png';
+    updateUploadAreaText();
+}
+
+function updateUploadAreaText() {
+    const heading = document.querySelector('.upload-content h5');
+    const subtext = document.querySelector('.upload-content p.text-muted');
+    
+    if (currentFileType === 'pdf') {
+        heading.textContent = 'Drag & Drop Bank Statements Here';
+        subtext.textContent = 'PDF files only';
+    } else if (currentFileType === 'image') {
+        heading.textContent = 'Drag & Drop Receipts Here';
+        subtext.textContent = 'Image files (JPG, PNG)';
+    } else {
+        heading.textContent = 'Drag & Drop Files Here';
+        subtext.textContent = 'Bank statements (PDF) or receipts (JPG, PNG)';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
 
     // File upload handling
@@ -290,19 +319,8 @@ document.addEventListener('DOMContentLoaded', function() {
         handleFiles(droppedFiles);
     });
     
-    // Add button click handlers
-    const addBankStatementBtn = document.getElementById('addBankStatementBtn');
-    const addReceiptBtn = document.getElementById('addReceiptBtn');
-    
-    addBankStatementBtn.addEventListener('click', function() {
-        setFileType('pdf');
-        fileInput.click();
-    });
-    
-    addReceiptBtn.addEventListener('click', function() {
-        setFileType('image');
-        fileInput.click();
-    });
+    // Initialize file input reference
+    fileInput = document.getElementById('fileInput');
     
     // File input change
     fileInput.addEventListener('change', function(e) {
