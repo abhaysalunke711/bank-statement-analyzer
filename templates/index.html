@@ -30,14 +30,31 @@
                 <form action="{{ url_for('upload_files') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
                     <div class="upload-area" id="uploadArea">
                         <div class="upload-content">
-                            <i class="fas fa-file-pdf fa-3x text-primary mb-3"></i>
-                            <h5>Drag & Drop PDF files here</h5>
-                            <p class="text-muted">or click to browse</p>
-                            <input type="file" name="files" id="fileInput" multiple accept=".pdf" class="d-none">
-                            <button type="button" class="btn btn-primary" id="browseBtn">
-                                <i class="fas fa-folder-open me-2"></i>
-                                Browse Files
-                            </button>
+                            <i id="uploadIcon" class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                            <h5>Drag & Drop Files Here</h5>
+                            <p class="text-muted">Bank statements (PDF) or receipts (JPG, PNG)</p>
+                            <input type="file" name="files" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-primary" id="browseBtn">
+                                    <i class="fas fa-folder-open me-2"></i>
+                                    Browse Files
+                                </button>
+                                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+                                    <span class="visually-hidden">Toggle Dropdown</span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="document.getElementById('fileInput').accept='.pdf'; document.getElementById('fileInput').click();">
+                                            <i class="fas fa-file-pdf me-2 text-danger"></i>Bank Statements (PDF)
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="document.getElementById('fileInput').accept='.jpg,.jpeg,.png'; document.getElementById('fileInput').click();">
+                                            <i class="fas fa-receipt me-2 text-success"></i>Receipts (Image)
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                     
@@ -176,14 +193,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function handleFiles(newFiles) {
-        // Filter PDF files only
-        const pdfFiles = newFiles.filter(file => file.type === 'application/pdf');
+        // Filter allowed file types
+        const allowedFiles = newFiles.filter(file => {
+            const type = file.type.toLowerCase();
+            return type === 'application/pdf' || 
+                   type === 'image/jpeg' || 
+                   type === 'image/jpg' || 
+                   type === 'image/png';
+        });
         
-        if (pdfFiles.length !== newFiles.length) {
-            alert('Only PDF files are allowed. Non-PDF files have been filtered out.');
+        if (allowedFiles.length !== newFiles.length) {
+            alert('Only PDF and image files (JPG, PNG) are allowed. Other files have been filtered out.');
         }
         
-        files = pdfFiles;
+        files = allowedFiles;
         displaySelectedFiles();
         updateUploadButton();
     }
@@ -200,13 +223,20 @@ document.addEventListener('DOMContentLoaded', function() {
         files.forEach((file, index) => {
             const fileItem = document.createElement('div');
             fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            const isPDF = file.type === 'application/pdf';
+            const fileIcon = isPDF ? 
+                '<i class="fas fa-file-pdf text-danger me-2"></i>' : 
+                '<i class="fas fa-receipt text-success me-2"></i>';
+            const fileType = isPDF ? 'Bank Statement' : 'Receipt';
+            
             fileItem.innerHTML = `
                 <div>
-                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                    ${fileIcon}
                     <strong>${file.name}</strong>
                     <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                    <span class="badge bg-${isPDF ? 'danger' : 'success'} ms-2">${fileType}</span>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                <button type="button" class="btn btn-sm btn-outline-${isPDF ? 'danger' : 'success'}" onclick="removeFile(${index})">
                     <i class="fas fa-times"></i>
                 </button>
             `;
@@ -216,16 +246,33 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateUploadButton() {
         uploadBtn.disabled = files.length === 0;
+        const uploadIcon = document.getElementById('uploadIcon');
         
         if (files.length > 0) {
+            // Check if we have PDFs, images, or both
+            const hasPDFs = files.some(f => f.type === 'application/pdf');
+            const hasImages = files.some(f => f.type.startsWith('image/'));
+            
+            // Update main upload icon
+            if (hasPDFs && hasImages) {
+                uploadIcon.className = 'fas fa-file-upload fa-3x text-primary mb-3';
+            } else if (hasPDFs) {
+                uploadIcon.className = 'fas fa-file-pdf fa-3x text-danger mb-3';
+            } else {
+                uploadIcon.className = 'fas fa-receipt fa-3x text-success mb-3';
+            }
+            
+            // Update button text
             uploadBtn.innerHTML = `
                 <i class="fas fa-analytics me-2"></i>
                 Analyze ${files.length} File${files.length > 1 ? 's' : ''}
             `;
         } else {
+            // Reset to default icon
+            uploadIcon.className = 'fas fa-cloud-upload-alt fa-3x text-primary mb-3';
             uploadBtn.innerHTML = `
                 <i class="fas fa-analytics me-2"></i>
-                Analyze Bank Statements
+                Upload Files to Analyze
             `;
         }
     }
