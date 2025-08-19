@@ -5,6 +5,7 @@ Provides web interface for uploading PDF files and viewing analysis results.
 
 import os
 import sys
+import json
 import logging
 from flask import Flask, request, render_template, redirect, url_for, flash, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -38,6 +39,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+os.makedirs('data', exist_ok=True)  # Ensure data directory exists
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -201,29 +203,6 @@ def upload_files():
             excel_html = excel_viewer.generate_html_tables(excel_data)
         else:
             excel_html = "<p class='text-muted'>Excel file not available</p>"
-        
-        # Prepare results for display - store both original and actual filenames
-        uploaded_file_info = []
-        for file_path in uploaded_files:
-            actual_filename = os.path.basename(file_path)
-            # Extract original filename (remove timestamp that was added during upload)
-            # Format: originalname_YYYYMMDD_HHMMSS.ext
-            if '_20' in actual_filename and actual_filename.count('_') >= 2:
-                # Find the last two underscores (date and time)
-                parts = actual_filename.rsplit('_', 2)  # Split from right, max 2 splits
-                if len(parts) == 3:
-                    # parts[0] = original name, parts[1] = date, parts[2] = time.ext
-                    original_name = parts[0] + os.path.splitext(actual_filename)[1]
-                else:
-                    original_name = actual_filename
-            else:
-                original_name = actual_filename
-            
-            uploaded_file_info.append({
-                'original_name': original_name,
-                'actual_filename': actual_filename,
-                'display_name': original_name
-            })
         
         # Prepare results for display
         results['excel_path'] = excel_path
