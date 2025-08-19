@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // File upload handling
     const uploadArea = document.getElementById('uploadArea');
-    const fileInput = document.getElementById('fileInput');
+    let fileInput = document.getElementById('fileInput');  // Changed to let since we reassign it
     const uploadBtn = document.getElementById('uploadBtn');
     const uploadForm = document.getElementById('uploadForm');
     
@@ -266,10 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update file input accept attribute
     function setFileType(type) {
         currentFileType = type;
-        fileInput.accept = type === 'pdf' ? '.pdf' : 
-                          type === 'image' ? '.jpg,.jpeg,.png' : 
-                          '.pdf,.jpg,.jpeg,.png';
-        updateUploadAreaText();
+        if (fileInput) {  // Add null check
+            fileInput.accept = type === 'pdf' ? '.pdf' : 
+                             type === 'image' ? '.jpg,.jpeg,.png' : 
+                             '.pdf,.jpg,.jpeg,.png';
+            updateUploadAreaText();
+        }
     }
     
     // Update upload area text based on file type
@@ -341,8 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
         handleFiles(droppedFiles);
     });
     
-    // Initialize file input reference
-    fileInput = document.getElementById('fileInput');
+    // Initialize file input reference - removed as we already have it
     
     // File input change
     fileInput.addEventListener('change', function(e) {
