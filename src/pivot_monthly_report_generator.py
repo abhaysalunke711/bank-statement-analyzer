@@ -451,6 +451,59 @@ class PivotMonthlyReportGenerator:
         
         return formatted_headers
     
+    def get_chart_data(self, transactions: List[Dict]) -> Dict:
+        """
+        Get data formatted for Chart.js line graphs.
+        
+        Args:
+            transactions: List of classified transactions
+            
+        Returns:
+            Dictionary with data formatted for Chart.js
+        """
+        pivot_data = self._organize_pivot_data(transactions)
+        
+        if not pivot_data:
+            return {}
+        
+        # Format months for display (e.g., "Jan 2024")
+        formatted_months = self._format_month_headers(pivot_data['months'])
+        
+        # Format expense data
+        expense_categories = []
+        for category in sorted(pivot_data['expense_data'].keys()):
+            category_data = pivot_data['expense_data'][category]
+            values = []
+            for month in pivot_data['months']:
+                values.append(category_data.get(month, 0))
+            expense_categories.append({
+                'name': category,
+                'values': values
+            })
+        
+        # Format income data
+        income_sources = []
+        for category in sorted(pivot_data['income_data'].keys()):
+            category_data = pivot_data['income_data'][category]
+            values = []
+            for month in pivot_data['months']:
+                values.append(category_data.get(month, 0))
+            income_sources.append({
+                'name': category,
+                'values': values
+            })
+        
+        return {
+            'expenses': {
+                'months': formatted_months,
+                'categories': expense_categories
+            },
+            'income': {
+                'months': formatted_months,
+                'sources': income_sources
+            }
+        }
+
     def _clean_amount(self, amount_str) -> float:
         """Convert amount string to float."""
         try:

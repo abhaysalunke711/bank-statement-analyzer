@@ -57,6 +57,40 @@
             </div>
         </div>
 
+        <!-- Charts Section -->
+        <div class="row mb-5">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Monthly Expenses Trend
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="position: relative; height: 300px;">
+                            <canvas id="expensesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h4 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Monthly Income Trend
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="position: relative; height: 300px;">
+                            <canvas id="incomeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Processed Files Section -->
         <div id="processed-files" class="card mb-5">
             <div class="card-header bg-info text-white">
@@ -465,7 +499,132 @@ if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
+// Initialize the charts with empty data
+let expensesChart = null;
+let incomeChart = null;
+
+function initializeCharts() {
+    const expensesCtx = document.getElementById('expensesChart').getContext('2d');
+    const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+
+    // Common chart options
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '₹' + value.toLocaleString();
+                    }
+                }
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
+                    }
+                }
+            }
+        }
+    };
+
+    // Initialize Expenses Chart
+    expensesChart = new Chart(expensesCtx, {
+        type: 'line',
+        data: {
+            labels: [], // Will be populated with months
+            datasets: [] // Will be populated with expense categories
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Monthly Expenses by Category'
+                }
+            }
+        }
+    });
+
+    // Initialize Income Chart
+    incomeChart = new Chart(incomeCtx, {
+        type: 'line',
+        data: {
+            labels: [], // Will be populated with months
+            datasets: [] // Will be populated with income sources
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Monthly Income by Source'
+                }
+            }
+        }
+    });
+}
+
+// Function to update charts with new data
+function updateCharts(data) {
+    if (!data) return;
+
+    // Update Expenses Chart
+    if (data.expenses) {
+        expensesChart.data.labels = data.expenses.months;
+        expensesChart.data.datasets = data.expenses.categories.map((category, index) => ({
+            label: category.name,
+            data: category.values,
+            borderColor: getChartColor(index),
+            backgroundColor: getChartColor(index, 0.1),
+            tension: 0.4
+        }));
+        expensesChart.update();
+    }
+
+    // Update Income Chart
+    if (data.income) {
+        incomeChart.data.labels = data.income.months;
+        incomeChart.data.datasets = data.income.sources.map((source, index) => ({
+            label: source.name,
+            data: source.values,
+            borderColor: getChartColor(index + 5), // Offset to get different colors
+            backgroundColor: getChartColor(index + 5, 0.1),
+            tension: 0.4
+        }));
+        incomeChart.update();
+    }
+}
+
+// Helper function to generate chart colors
+function getChartColor(index, alpha = 1) {
+    const colors = [
+        `rgba(52, 152, 219, ${alpha})`,  // Blue
+        `rgba(231, 76, 60, ${alpha})`,   // Red
+        `rgba(46, 204, 113, ${alpha})`,  // Green
+        `rgba(155, 89, 182, ${alpha})`,  // Purple
+        `rgba(241, 196, 15, ${alpha})`,  // Yellow
+        `rgba(230, 126, 34, ${alpha})`,  // Orange
+        `rgba(52, 73, 94, ${alpha})`,    // Dark Gray
+        `rgba(26, 188, 156, ${alpha})`,  // Turquoise
+    ];
+    return colors[index % colors.length];
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    
+    // Update charts with data from Flask
+    const chartData = {{ results.chart_data | tojson | safe }};
+    updateCharts(chartData);
+
     // Initialize tooltips for truncated text
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

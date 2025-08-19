@@ -131,6 +131,9 @@ def upload_files():
         # Create pivot-style Excel report with color coding
         excel_path = pivot_generator.create_pivot_excel_report(categorized_transactions)
         
+        # Get chart data for visualization
+        chart_data = pivot_generator.get_chart_data(categorized_transactions)
+        
         # Generate Excel viewer data for browser display
         excel_viewer = ExcelViewer()
         excel_data = {}
@@ -172,6 +175,7 @@ def upload_files():
         results['excel_html'] = excel_html
         results['uploaded_files'] = [f['display_name'] for f in uploaded_file_info]  # For backward compatibility
         results['uploaded_file_info'] = uploaded_file_info
+        results['chart_data'] = chart_data  # Add chart data to results
         
         flash(f'Successfully processed {results["total_transactions"]} transactions from {len(uploaded_files)} files', 'success')
         

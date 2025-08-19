@@ -17,6 +17,36 @@
             </p>
         </div>
 
+        <!-- Analytics Section -->
+        <div class="row mb-5">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-chart-line text-primary me-2"></i>
+                            Monthly Expenses Trend
+                        </h5>
+                        <div class="chart-container" style="position: relative; height: 300px;">
+                            <canvas id="expensesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-chart-line text-success me-2"></i>
+                            Monthly Income Trend
+                        </h5>
+                        <div class="chart-container" style="position: relative; height: 300px;">
+                            <canvas id="incomeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Upload Card -->
         <div class="card mb-5">
             <div class="card-body">
@@ -110,7 +140,170 @@
 
 {% block extra_js %}
 <script>
+// Initialize the charts with empty data
+let expensesChart = null;
+let incomeChart = null;
+
+function initializeCharts() {
+    const expensesCtx = document.getElementById('expensesChart').getContext('2d');
+    const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+
+    // Common chart options
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '₹' + value.toLocaleString();
+                    }
+                }
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
+                    }
+                }
+            }
+        }
+    };
+
+    // Initialize Expenses Chart
+    expensesChart = new Chart(expensesCtx, {
+        type: 'line',
+        data: {
+            labels: [], // Will be populated with months
+            datasets: [] // Will be populated with expense categories
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Monthly Expenses by Category'
+                }
+            }
+        }
+    });
+
+    // Initialize Income Chart
+    incomeChart = new Chart(incomeCtx, {
+        type: 'line',
+        data: {
+            labels: [], // Will be populated with months
+            datasets: [] // Will be populated with income sources
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Monthly Income by Source'
+                }
+            }
+        }
+    });
+}
+
+// Function to update charts with new data
+function updateCharts(data) {
+    if (!data) return;
+
+    // Update Expenses Chart
+    if (data.expenses) {
+        expensesChart.data.labels = data.expenses.months;
+        expensesChart.data.datasets = data.expenses.categories.map((category, index) => ({
+            label: category.name,
+            data: category.values,
+            borderColor: getChartColor(index),
+            backgroundColor: getChartColor(index, 0.1),
+            tension: 0.4
+        }));
+        expensesChart.update();
+    }
+
+    // Update Income Chart
+    if (data.income) {
+        incomeChart.data.labels = data.income.months;
+        incomeChart.data.datasets = data.income.sources.map((source, index) => ({
+            label: source.name,
+            data: source.values,
+            borderColor: getChartColor(index + 5), // Offset to get different colors
+            backgroundColor: getChartColor(index + 5, 0.1),
+            tension: 0.4
+        }));
+        incomeChart.update();
+    }
+}
+
+// Helper function to generate chart colors
+function getChartColor(index, alpha = 1) {
+    const colors = [
+        `rgba(52, 152, 219, ${alpha})`,  // Blue
+        `rgba(231, 76, 60, ${alpha})`,   // Red
+        `rgba(46, 204, 113, ${alpha})`,  // Green
+        `rgba(155, 89, 182, ${alpha})`,  // Purple
+        `rgba(241, 196, 15, ${alpha})`,  // Yellow
+        `rgba(230, 126, 34, ${alpha})`,  // Orange
+        `rgba(52, 73, 94, ${alpha})`,    // Dark Gray
+        `rgba(26, 188, 156, ${alpha})`,  // Turquoise
+    ];
+    return colors[index % colors.length];
+}
+
+// Initialize charts when the page loads
 document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+
+    // Example data structure for testing
+    const sampleData = {
+        expenses: {
+            months: ['Jan 2024', 'Feb 2024', 'Mar 2024'],
+            categories: [
+                {
+                    name: 'Food',
+                    values: [15000, 16000, 14500]
+                },
+                {
+                    name: 'Transportation',
+                    values: [8000, 7500, 8200]
+                },
+                {
+                    name: 'Shopping',
+                    values: [12000, 9000, 11000]
+                }
+            ]
+        },
+        income: {
+            months: ['Jan 2024', 'Feb 2024', 'Mar 2024'],
+            sources: [
+                {
+                    name: 'Salary',
+                    values: [50000, 50000, 50000]
+                },
+                {
+                    name: 'Investments',
+                    values: [5000, 5500, 6000]
+                },
+                {
+                    name: 'Freelance',
+                    values: [10000, 12000, 8000]
+                }
+            ]
+        }
+    };
+
+    // Update charts with sample data (this will be replaced with real data)
+    updateCharts(sampleData);
+
+    // File upload handling
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
     const browseBtn = document.getElementById('browseBtn');
@@ -324,6 +517,25 @@ document.addEventListener('DOMContentLoaded', function() {
     position: absolute !important;
     left: -9999px !important;
     visibility: hidden !important;
+}
+
+/* Chart styles */
+.chart-container {
+    margin: 10px 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.card .chart-container {
+    min-height: 300px;
+    transition: all 0.3s ease;
+}
+
+.card .chart-container:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
 }
 
 /* Enhanced drag over effect */
