@@ -271,17 +271,69 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Create progress indicator
         const progressDiv = document.createElement('div');
-        progressDiv.className = 'mt-3';
+        progressDiv.className = 'mt-4';
         progressDiv.innerHTML = `
-            <div class="progress">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+            <div class="progress mb-3" style="height: 20px;">
+                <div id="uploadProgress" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
             </div>
-            <small class="text-muted mt-2 d-block">
-                <i class="fas fa-cog fa-spin me-1"></i>
-                Extracting text from PDFs, categorizing transactions, and generating reports...
-            </small>
+            <div id="processingSteps" class="processing-steps">
+                <div class="processing-step mb-2 text-muted">
+                    <i class="fas fa-file-pdf text-primary me-2"></i>
+                    <span>Extracting text from PDFs</span>
+                    <i class="fas fa-check text-success ms-2 d-none"></i>
+                </div>
+                <div class="processing-step mb-2 text-muted">
+                    <i class="fas fa-tags text-primary me-2"></i>
+                    <span>Categorizing transactions</span>
+                    <i class="fas fa-check text-success ms-2 d-none"></i>
+                </div>
+                <div class="processing-step mb-2 text-muted">
+                    <i class="fas fa-chart-bar text-primary me-2"></i>
+                    <span>Generating reports and charts</span>
+                    <i class="fas fa-check text-success ms-2 d-none"></i>
+                </div>
+            </div>
         `;
         uploadBtn.parentNode.appendChild(progressDiv);
+
+        // Simulate progress for better user experience
+        let currentProgress = 0;
+        const steps = document.querySelectorAll('.processing-step');
+        const progressBar = document.getElementById('uploadProgress');
+        
+        function updateProgress(progress, stepIndex) {
+            currentProgress = progress;
+            progressBar.style.width = `${progress}%`;
+            progressBar.textContent = `${progress}%`;
+            progressBar.setAttribute('aria-valuenow', progress);
+
+            // Update step indicators
+            steps.forEach((step, index) => {
+                if (index < stepIndex) {
+                    step.classList.remove('text-muted');
+                    step.classList.add('text-success');
+                    step.querySelector('.fa-check').classList.remove('d-none');
+                } else if (index === stepIndex) {
+                    step.classList.remove('text-muted');
+                    step.classList.add('text-primary');
+                }
+            });
+        }
+
+        // Simulate the processing steps
+        setTimeout(() => updateProgress(15, 0), 500);  // Start PDF extraction
+        setTimeout(() => updateProgress(30, 0), 1500); // PDF extraction progress
+        setTimeout(() => {
+            updateProgress(45, 1);  // Start categorization
+            steps[0].querySelector('.fa-check').classList.remove('d-none');
+        }, 2500);
+        setTimeout(() => updateProgress(60, 1), 3500); // Categorization progress
+        setTimeout(() => {
+            updateProgress(75, 2);  // Start report generation
+            steps[1].querySelector('.fa-check').classList.remove('d-none');
+        }, 4500);
+        setTimeout(() => updateProgress(90, 2), 5500); // Report generation progress
     });
 });
 </script>
@@ -338,6 +390,56 @@ document.addEventListener('DOMContentLoaded', function() {
     border-color: #2196f3;
     transform: scale(1.02);
     transition: all 0.3s ease;
+}
+
+/* Processing steps styling */
+.processing-steps {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+}
+
+.processing-step {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.processing-step.text-primary {
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.processing-step.text-success {
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.processing-step i.fa-check {
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s ease;
+}
+
+.processing-step i.fa-check:not(.d-none) {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Progress bar enhancements */
+.progress {
+    background-color: #e9ecef;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3);
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 20px;
+    transition: width 0.5s ease;
 }
 </style>
 {% endblock %}
