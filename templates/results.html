@@ -20,39 +20,39 @@
         <!-- Statistics Cards -->
         <div class="row mb-5">
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center clickable-card" onclick="scrollToSection('excel-viewer')" 
+                <div class="stats-card text-center clickable-card btn-primary" onclick="scrollToSection('excel-viewer')" 
                      title="Click to view detailed transaction tables">
                     <i class="fas fa-receipt fa-2x mb-2"></i>
-                    <h3 class="fw-bold">{{ results.total_transactions }}</h3>
-                    <p class="mb-0">Total Transactions</p>
-                    <small class="text-muted mt-1">👆 Click to view details</small>
+                    <h3 class="fw-bold text-white">{{ results.total_transactions }}</h3>
+                    <p class="mb-0 text-white">Total Transactions</p>
+                    <small class="text-white-50 mt-1">👆 Click to view details</small>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center clickable-card" onclick="showCategoriesModal()" 
+                <div class="stats-card text-center clickable-card btn-primary" onclick="showCategoriesModal()" 
                      title="Click to see all categories breakdown">
                     <i class="fas fa-tags fa-2x mb-2"></i>
-                    <h3 class="fw-bold">{{ results.categories_found }}</h3>
-                    <p class="mb-0">Categories Found</p>
-                    <small class="text-muted mt-1">👆 Click to see breakdown</small>
+                    <h3 class="fw-bold text-white">{{ results.categories_found }}</h3>
+                    <p class="mb-0 text-white">Categories Found</p>
+                    <small class="text-white-50 mt-1">👆 Click to see breakdown</small>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center clickable-card" onclick="scrollToSection('processed-files')" 
+                <div class="stats-card text-center clickable-card btn-primary" onclick="scrollToSection('processed-files')" 
                      title="Click to view processed PDF files">
                     <i class="fas fa-file-pdf fa-2x mb-2"></i>
-                    <h3 class="fw-bold">{{ results.uploaded_files|length }}</h3>
-                    <p class="mb-0">PDF Files Processed</p>
-                    <small class="text-muted mt-1">👆 Click to view files</small>
+                    <h3 class="fw-bold text-white">{{ results.uploaded_files|length }}</h3>
+                    <p class="mb-0 text-white">PDF Files Processed</p>
+                    <small class="text-white-50 mt-1">👆 Click to view files</small>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-3">
-                <div class="stats-card text-center clickable-card" onclick="scrollToSection('excel-viewer')" 
+                <div class="stats-card text-center clickable-card btn-primary" onclick="scrollToSection('excel-viewer')" 
                      title="Click to view Excel report">
                     <i class="fas fa-file-excel fa-2x mb-2"></i>
-                    <h3 class="fw-bold">1</h3>
-                    <p class="mb-0">Excel Report Generated</p>
-                    <small class="text-muted mt-1">👆 Click to view report</small>
+                    <h3 class="fw-bold text-white">1</h3>
+                    <p class="mb-0 text-white">Excel Report Generated</p>
+                    <small class="text-white-50 mt-1">👆 Click to view report</small>
                 </div>
             </div>
         </div>
@@ -1400,16 +1400,27 @@ function animateCards() {
 
 /* Stats cards specific styling */
 .stats-card.clickable-card {
-    background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-    border: 1px solid #dee2e6;
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    border: none;
     border-radius: 10px;
     padding: 1.5rem;
     height: 100%;
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3);
+    transition: all 0.3s ease;
 }
 
 .stats-card.clickable-card:hover {
-    border-color: #007bff;
-    background: linear-gradient(135deg, #fff 0%, #e3f2fd 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+    background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+}
+
+.stats-card.clickable-card i {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.stats-card.clickable-card:hover i {
+    color: white;
 }
 
 /* PDF file cards */
