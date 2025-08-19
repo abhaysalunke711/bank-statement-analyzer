@@ -401,6 +401,121 @@ def internal_error(e):
     flash('An internal error occurred. Please try again.', 'error')
     return redirect(url_for('index'))
 
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    """Get all categories and their keywords."""
+    try:
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        return jsonify(categories)
+    except FileNotFoundError:
+        return jsonify({})
+    except Exception as e:
+        logger.error(f"Error reading categories: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories/<name>', methods=['GET'])
+def get_category(name):
+    """Get a specific category by name."""
+    try:
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        
+        if name in categories:
+            return jsonify(categories[name])
+        else:
+            return jsonify({'error': 'Category not found'}), 404
+    except Exception as e:
+        logger.error(f"Error reading category {name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories', methods=['POST'])
+def create_category():
+    """Create a new category."""
+    try:
+        data = request.get_json()
+        if not data or 'name' not in data:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        
+        name = data['name']
+        if name in categories:
+            return jsonify({'error': 'Category already exists'}), 409
+        
+        categories[name] = {
+            'description': data.get('description', ''),
+            'keywords': data.get('keywords', [])
+        }
+        
+        with open('data/categories.json', 'w') as f:
+            json.dump(categories, f, indent=4)
+        
+        return jsonify({'message': 'Category created successfully'})
+    except Exception as e:
+        logger.error(f"Error creating category: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories/<name>', methods=['PUT'])
+def update_category(name):
+    """Update an existing category."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        
+        if name not in categories:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        # Update category
+        new_name = data.get('name', name)
+        if new_name != name and new_name in categories:
+            return jsonify({'error': 'New category name already exists'}), 409
+        
+        category_data = {
+            'description': data.get('description', categories[name]['description']),
+            'keywords': data.get('keywords', categories[name]['keywords'])
+        }
+        
+        # Handle category rename
+        if new_name != name:
+            del categories[name]
+            categories[new_name] = category_data
+        else:
+            categories[name] = category_data
+        
+        with open('data/categories.json', 'w') as f:
+            json.dump(categories, f, indent=4)
+        
+        return jsonify({'message': 'Category updated successfully'})
+    except Exception as e:
+        logger.error(f"Error updating category {name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories/<name>', methods=['DELETE'])
+def delete_category(name):
+    """Delete a category."""
+    try:
+        with open('data/categories.json', 'r') as f:
+            categories = json.load(f)
+        
+        if name not in categories:
+            return jsonify({'error': 'Category not found'}), 404
+        
+        del categories[name]
+        
+        with open('data/categories.json', 'w') as f:
+            json.dump(categories, f, indent=4)
+        
+        return jsonify({'message': 'Category deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting category {name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/process_receipt', methods=['POST'])
 def process_receipt():
     """Process receipt image using OCR."""

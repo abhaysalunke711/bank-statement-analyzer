@@ -1,0 +1,89 @@
+{
+    "Income": {
+        "description": "Money received from various sources",
+        "keywords": [
+            "salary",
+            "deposit",
+            "interest",
+            "refund",
+            "credit"
+        ]
+    },
+    "Food": {
+        "description": "Restaurants, groceries, and food delivery",
+        "keywords": [
+            "restaurant",
+            "cafe",
+            "coffee",
+            "grocery",
+            "food",
+            "uber eats",
+            "doordash",
+            "grubhub"
+        ]
+    },
+    "Shopping": {
+        "description": "Retail purchases and online shopping",
+        "keywords": [
+            "amazon",
+            "walmart",
+            "target",
+            "ebay",
+            "store",
+            "market",
+            "shop"
+        ]
+    },
+    "Transportation": {
+        "description": "Public transit, ride sharing, and fuel",
+        "keywords": [
+            "uber",
+            "lyft",
+            "taxi",
+            "transit",
+            "train",
+            "bus",
+            "gas",
+            "fuel",
+            "parking"
+        ]
+    },
+    "Utilities": {
+        "description": "Household bills and services",
+        "keywords": [
+            "electric",
+            "water",
+            "gas",
+            "internet",
+            "phone",
+            "mobile",
+            "utility",
+            "bill"
+        ]
+    },
+    "Entertainment": {
+        "description": "Movies, games, streaming services",
+        "keywords": [
+            "netflix",
+            "hulu",
+            "spotify",
+            "movie",
+            "theater",
+            "game",
+            "steam",
+            "entertainment"
+        ]
+    },
+    "Health": {
+        "description": "Medical expenses and healthcare",
+        "keywords": [
+            "doctor",
+            "hospital",
+            "pharmacy",
+            "medical",
+            "health",
+            "dental",
+            "clinic"
+        ]
+    }
+}

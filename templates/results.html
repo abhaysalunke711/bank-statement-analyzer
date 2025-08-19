@@ -392,23 +392,76 @@
 
 <!-- Categories Modal -->
 <div class="modal fade" id="categoriesModal" tabindex="-1" aria-labelledby="categoriesModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="categoriesModalLabel">
                     <i class="fas fa-tags me-2"></i>
-                    Transaction Categories Breakdown
+                    Transaction Categories & Keywords
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="categoriesContent">
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading categories...</span>
-                        </div>
-                        <p class="mt-2">Loading categories breakdown...</p>
+                <!-- Categories List -->
+                <div id="categoriesList" class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Current Categories</h6>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addNewCategory()">
+                            <i class="fas fa-plus me-1"></i>
+                            Add Category
+                        </button>
                     </div>
+                    <div class="list-group" id="categoriesContainer">
+                        <!-- Categories will be loaded here -->
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading categories...</span>
+                            </div>
+                            <p class="mt-2">Loading categories...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add/Edit Category Form -->
+                <div id="categoryForm" class="border rounded p-3 bg-light" style="display: none;">
+                    <h6 class="mb-3">
+                        <span id="formTitle">Add New Category</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary float-end" onclick="toggleCategoryForm(false)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </h6>
+                    <form id="categoryEditForm" onsubmit="saveCategory(event)">
+                        <input type="hidden" id="categoryId">
+                        <div class="mb-3">
+                            <label for="categoryName" class="form-label">Category Name</label>
+                            <input type="text" class="form-control" id="categoryName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="categoryDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="categoryDescription" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                Keywords
+                                <button type="button" class="btn btn-sm btn-link p-0" onclick="addKeywordField()">
+                                    <i class="fas fa-plus-circle"></i> Add Keyword
+                                </button>
+                            </label>
+                            <div id="keywordsContainer">
+                                <!-- Keyword fields will be added here -->
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" placeholder="Enter keyword">
+                                    <button type="button" class="btn btn-outline-danger" onclick="removeKeywordField(this)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2" onclick="toggleCategoryForm(false)">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Category</button>
+                        </div>
+                    </form>
                 </div>
             </div>
             <div class="modal-footer">
@@ -676,152 +729,209 @@ function scrollToSection(sectionId) {
     }
 }
 
-// Show categories modal with breakdown
+// Show categories modal
 function showCategoriesModal() {
     const modal = new bootstrap.Modal(document.getElementById('categoriesModal'));
     modal.show();
-    
-    // Load categories data
-    loadCategoriesData();
+    loadCategories();
 }
 
-// Load categories breakdown data
-function loadCategoriesData() {
-    const categoriesContent = document.getElementById('categoriesContent');
-    
-    // Extract categories from the Excel tables
-    setTimeout(() => {
-        const categories = extractCategoriesFromTables();
-        displayCategoriesBreakdown(categories);
-    }, 500);
+// Load categories from server
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        displayCategories(categories);
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        showError('Failed to load categories. Please try again.');
+    }
 }
 
-// Extract categories from existing tables
-function extractCategoriesFromTables() {
-    const categories = new Map();
-    const tables = document.querySelectorAll('.table tbody tr');
+// Display categories in the list
+function displayCategories(categories) {
+    const container = document.getElementById('categoriesContainer');
     
-    tables.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 3) {
-            // Look for category column (usually 3rd column)
-            const categoryCell = cells[2];
-            const amountCell = cells[3];
-            
-            if (categoryCell && amountCell) {
-                const categoryText = categoryCell.textContent.trim();
-                const amountText = amountCell.textContent.trim();
-                
-                // Skip if it's a header or total row
-                if (categoryText && !categoryText.includes('Category') && !categoryText.includes('TOTAL')) {
-                    if (!categories.has(categoryText)) {
-                        categories.set(categoryText, {
-                            name: categoryText,
-                            transactions: 0,
-                            totalAmount: 0,
-                            type: 'unknown'
-                        });
-                    }
-                    
-                    const category = categories.get(categoryText);
-                    category.transactions += 1;
-                    
-                    // Try to parse amount
-                    try {
-                        const amount = parseFloat(amountText.replace(/[$,]/g, ''));
-                        if (!isNaN(amount)) {
-                            category.totalAmount += Math.abs(amount);
-                        }
-                    } catch (e) {
-                        // Ignore parsing errors
-                    }
-                }
-            }
-        }
-    });
-    
-    return Array.from(categories.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-}
-
-// Display categories breakdown in modal
-function displayCategoriesBreakdown(categories) {
-    const categoriesContent = document.getElementById('categoriesContent');
-    
-    if (categories.length === 0) {
-        categoriesContent.innerHTML = `
-            <div class="text-center text-muted">
-                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
-                <p>No categories found in the current data.</p>
+    if (!categories || Object.keys(categories).length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted p-4">
+                <i class="fas fa-folder-open fa-2x mb-2"></i>
+                <p>No categories defined yet. Click "Add Category" to create one.</p>
             </div>
         `;
         return;
     }
     
-    let html = `
-        <div class="row mb-3">
-            <div class="col-12">
-                <h6>Found ${categories.length} categories with transactions:</h6>
+    const html = Object.entries(categories).map(([name, data]) => `
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6 class="mb-1">${name}</h6>
+                    <p class="mb-1 text-muted small">${data.description || 'No description'}</p>
+                    <div class="keywords">
+                        ${data.keywords.map(keyword => 
+                            `<span class="badge bg-light text-dark me-1">${keyword}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-primary" onclick="editCategory('${name}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteCategory('${name}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Category</th>
-                        <th class="text-center">Transactions</th>
-                        <th class="text-end">Total Amount</th>
-                        <th class="text-center">Percentage</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
+    `).join('');
     
-    const totalAmount = categories.reduce((sum, cat) => sum + cat.totalAmount, 0);
+    container.innerHTML = html;
+}
+
+// Toggle category form visibility
+function toggleCategoryForm(show = true) {
+    const form = document.getElementById('categoryForm');
+    form.style.display = show ? 'block' : 'none';
     
-    categories.forEach((category, index) => {
-        const percentage = totalAmount > 0 ? (category.totalAmount / totalAmount * 100) : 0;
-        const badgeColor = index < 3 ? 'bg-primary' : index < 6 ? 'bg-info' : 'bg-secondary';
+    if (!show) {
+        // Reset form
+        document.getElementById('categoryEditForm').reset();
+        document.getElementById('categoryId').value = '';
+        document.getElementById('formTitle').textContent = 'Add New Category';
+        resetKeywords();
+    }
+}
+
+// Add new category
+function addNewCategory() {
+    toggleCategoryForm(true);
+    document.getElementById('formTitle').textContent = 'Add New Category';
+    document.getElementById('categoryId').value = '';
+    resetKeywords();
+}
+
+// Edit existing category
+function editCategory(name) {
+    toggleCategoryForm(true);
+    document.getElementById('formTitle').textContent = 'Edit Category';
+    document.getElementById('categoryId').value = name;
+    
+    // Load category data
+    fetch(`/api/categories/${encodeURIComponent(name)}`)
+        .then(response => response.json())
+        .then(category => {
+            document.getElementById('categoryName').value = name;
+            document.getElementById('categoryDescription').value = category.description || '';
+            
+            // Load keywords
+            resetKeywords();
+            category.keywords.forEach(keyword => addKeywordField(keyword));
+        })
+        .catch(error => {
+            console.error('Error loading category:', error);
+            showError('Failed to load category details. Please try again.');
+        });
+}
+
+// Delete category
+function deleteCategory(name) {
+    if (confirm(`Are you sure you want to delete the category "${name}"?`)) {
+        fetch(`/api/categories/${encodeURIComponent(name)}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (response.ok) {
+                loadCategories();  // Refresh the list
+                showSuccess('Category deleted successfully');
+            } else {
+                throw new Error('Failed to delete category');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting category:', error);
+            showError('Failed to delete category. Please try again.');
+        });
+    }
+}
+
+// Save category
+async function saveCategory(event) {
+    event.preventDefault();
+    
+    const categoryId = document.getElementById('categoryId').value;
+    const name = document.getElementById('categoryName').value;
+    const description = document.getElementById('categoryDescription').value;
+    const keywords = Array.from(document.querySelectorAll('#keywordsContainer input'))
+        .map(input => input.value.trim())
+        .filter(keyword => keyword !== '');
+    
+    const data = {
+        name,
+        description,
+        keywords
+    };
+    
+    try {
+        const method = categoryId ? 'PUT' : 'POST';
+        const url = categoryId ? 
+            `/api/categories/${encodeURIComponent(categoryId)}` : 
+            '/api/categories';
         
-        html += `
-            <tr>
-                <td>
-                    <span class="badge ${badgeColor} me-2">${index + 1}</span>
-                    ${category.name}
-                </td>
-                <td class="text-center">
-                    <span class="badge bg-light text-dark">${category.transactions}</span>
-                </td>
-                <td class="text-end fw-bold">
-                    $${category.totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                </td>
-                <td class="text-center">
-                    <div class="progress" style="height: 20px;">
-                        <div class="progress-bar" role="progressbar" 
-                             style="width: ${percentage}%" 
-                             aria-valuenow="${percentage}" 
-                             aria-valuemin="0" 
-                             aria-valuemax="100">
-                            ${percentage.toFixed(1)}%
-                        </div>
-                    </div>
-                </td>
-            </tr>
-        `;
-    });
-    
-    html += `
-                </tbody>
-            </table>
-        </div>
-        <div class="mt-3">
-            <small class="text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                Categories are automatically detected from transaction descriptions and can be customized in the configuration.
-            </small>
-        </div>
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            loadCategories();  // Refresh the list
+            toggleCategoryForm(false);  // Hide the form
+            showSuccess(`Category ${categoryId ? 'updated' : 'created'} successfully`);
+        } else {
+            throw new Error('Failed to save category');
+        }
+    } catch (error) {
+        console.error('Error saving category:', error);
+        showError('Failed to save category. Please try again.');
+    }
+}
+
+// Keyword field management
+function addKeywordField(value = '') {
+    const container = document.getElementById('keywordsContainer');
+    const field = document.createElement('div');
+    field.className = 'input-group mb-2';
+    field.innerHTML = `
+        <input type="text" class="form-control" placeholder="Enter keyword" value="${value}">
+        <button type="button" class="btn btn-outline-danger" onclick="removeKeywordField(this)">
+            <i class="fas fa-times"></i>
+        </button>
     `;
-    
-    categoriesContent.innerHTML = html;
+    container.appendChild(field);
+}
+
+function removeKeywordField(button) {
+    button.closest('.input-group').remove();
+}
+
+function resetKeywords() {
+    const container = document.getElementById('keywordsContainer');
+    container.innerHTML = '';
+    addKeywordField();  // Add one empty field
+}
+
+// Notifications
+function showSuccess(message) {
+    // You can implement this using your preferred notification library
+    alert(message);  // For now, using simple alert
+}
+
+function showError(message) {
+    // You can implement this using your preferred notification library
+    alert('Error: ' + message);  // For now, using simple alert
 }
 
 // Open PDF viewer
