@@ -43,8 +43,11 @@
                     
                     <!-- Selected Files Display -->
                     <div id="selectedFiles" class="mt-4 border rounded p-3 bg-light" style="display: none;">
-                        <h6 class="mb-3">Selected Files:</h6>
-                        <div id="fileList" class="list-group"></div>
+                        <h6 class="mb-3">
+                            <i class="fas fa-folder-open me-2"></i>
+                            Selected Files
+                        </h6>
+                        <div id="fileList" class="list-group shadow-sm"></div>
                     </div>
                     
                     <!-- Upload Button -->
@@ -221,18 +224,26 @@ function getFileTypeLabel(file) {
     return '<span class="badge bg-secondary">Unknown</span>';
 }
 
+// Global variables
+let files = [];
+
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
 
     // File upload handling
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
-    const browseBtn = document.getElementById('browseBtn');
-    const selectedFiles = document.getElementById('selectedFiles');
-    const fileList = document.getElementById('fileList');
     const uploadBtn = document.getElementById('uploadBtn');
     const uploadForm = document.getElementById('uploadForm');
     
-    let files = [];
+    console.log('Initial elements:', {
+        uploadArea,
+        fileInput,
+        uploadBtn,
+        uploadForm,
+        selectedFiles: document.getElementById('selectedFiles'),
+        fileList: document.getElementById('fileList')
+    });
     
     // File type tracking
     let currentFileType = 'all'; // 'all', 'pdf', or 'image'
@@ -321,7 +332,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // File input change
     fileInput.addEventListener('change', function(e) {
         console.log('File input change event triggered');
+        
+        if (!e.target.files || e.target.files.length === 0) {
+            console.log('No files selected');
+            files = [];
+            displaySelectedFiles();
+            updateUploadButton();
+            return;
+        }
+        
         console.log('Files selected:', e.target.files.length);
+        console.log('Selected files:', Array.from(e.target.files).map(f => ({
+            name: f.name,
+            type: f.type,
+            size: f.size
+        })));
         
         // Update the global files array
         files = Array.from(e.target.files);
@@ -329,10 +354,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Handle the files
         handleFiles(files);
-        
-        // Update the UI
-        displaySelectedFiles();
-        updateUploadButton();
     });
     
     // Additional safety - ensure file input is properly reset when needed
@@ -524,11 +545,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function displaySelectedFiles() {
+        console.log('displaySelectedFiles called');
+        console.log('Current files array:', files);
+        
+        const selectedFiles = document.getElementById('selectedFiles');
+        const fileList = document.getElementById('fileList');
+        
+        console.log('selectedFiles element:', selectedFiles);
+        console.log('fileList element:', fileList);
+        
+        if (!selectedFiles || !fileList) {
+            console.error('Required elements not found!');
+            return;
+        }
+        
         if (files.length === 0) {
+            console.log('No files selected, hiding container');
             selectedFiles.style.display = 'none';
             return;
         }
         
+        console.log('Files selected, showing container');
         selectedFiles.style.display = 'block';
         fileList.innerHTML = '';
         
@@ -907,6 +944,36 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.875rem;
     line-height: 20px;
     transition: width 0.5s ease;
+}
+
+/* Selected Files Container */
+#selectedFiles {
+    transition: all 0.3s ease;
+    border: 1px solid #dee2e6 !important;
+}
+
+#selectedFiles:not([style*="display: none"]) {
+    margin-top: 2rem !important;
+    margin-bottom: 1rem !important;
+}
+
+#selectedFiles .list-group-item {
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+
+#selectedFiles .list-group-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(3px);
+}
+
+/* File type specific styles */
+#selectedFiles .list-group-item.pdf-file {
+    border-left-color: #dc3545;
+}
+
+#selectedFiles .list-group-item.image-file {
+    border-left-color: #28a745;
 }
 </style>
 {% endblock %}
