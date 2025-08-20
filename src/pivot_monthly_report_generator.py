@@ -1,613 +1,224 @@
 """
-Pivot-style Monthly Report Generator.
-Creates a single Excel sheet with items as rows and months as columns,
-separated into income and expense sections.
+Pivot Monthly Report Generator module for creating Excel reports with pivot-style summaries.
 """
 
 import os
 import logging
+from typing import List, Dict
 import pandas as pd
 import xlsxwriter
 from datetime import datetime
-from typing import List, Dict, Tuple
-import re
-from collections import defaultdict
-
-from income_expense_analyzer import IncomeExpenseAnalyzer
 
 class PivotMonthlyReportGenerator:
     def __init__(self, output_dir: str = 'output'):
         self.output_dir = output_dir
         self.logger = logging.getLogger(__name__)
-        self.income_expense_analyzer = IncomeExpenseAnalyzer()
         
         # Ensure output directory exists
-        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
     
-    def create_pivot_excel_report(self, transactions: List[Dict], filename: str = None, receipt_data: List[Dict] = None) -> str:
+    def create_pivot_excel_report(self, transactions: List[Dict], grouped_transactions: Dict[str, List[Dict]] = None, receipt_data: List[Dict] = None) -> str:
         """
-        Create a pivot-style Excel file with items as rows and months as columns.
+        Create an Excel report with pivot-style summaries and grouped transactions.
         
         Args:
             transactions: List of categorized transactions
-            filename: Custom filename for the Excel file
-            receipt_data: Optional list of receipt data dictionaries
+            grouped_transactions: Dictionary of grouped transactions by section
             
         Returns:
             Path to created Excel file
         """
-        if not filename:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"pivot_bank_analysis_{timestamp}.xlsx"
-        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"bank_statement_analysis_{timestamp}.xlsx"
         excel_path = os.path.join(self.output_dir, filename)
         
         try:
-            # Classify transactions as income or expenses
-            self.logger.info("Analyzing transactions for income/expense classification...")
-            classified_transactions = self.income_expense_analyzer.classify_transactions(transactions)
+            # Create Excel writer
+            writer = pd.ExcelWriter(excel_path, engine='xlsxwriter')
+            workbook = writer.book
             
-            # Organize data for pivot layout
-            pivot_data = self._organize_pivot_data(classified_transactions)
+            # Add formats
+            header_format = workbook.add_format({
+                'bold': True,
+                'bg_color': '#4F81BD',
+                'font_color': 'white',
+                'border': 1
+            })
             
-            if not pivot_data:
-                self.logger.warning("No pivot data to process")
-                return ""
+            money_format = workbook.add_format({
+                'num_format': '$#,##0.00',
+                'border': 1
+            })
             
-            # Create Excel workbook
-            workbook = xlsxwriter.Workbook(excel_path)
+            date_format = workbook.add_format({
+                'num_format': 'mm/dd/yyyy',
+                'border': 1
+            })
             
-            # Define formats
-            formats = self._create_pivot_formats(workbook)
+            border_format = workbook.add_format({
+                'border': 1
+            })
             
-            # Create the pivot sheet
-            self._create_pivot_sheet(workbook, pivot_data, formats)
+            # Create transactions DataFrame
+            df = pd.DataFrame(transactions)
             
-            # Create receipts sheet if receipt data is provided
+            # Clean amount column
+            df['amount'] = pd.to_numeric(df['amount'].str.replace('$', '').str.replace(',', ''), errors='coerce')
+            
+            # Convert dates
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            
+            # Create monthly pivot
+            pivot = pd.pivot_table(
+                df,
+                values='amount',
+                index='category',
+                columns=pd.Grouper(key='date', freq='M'),
+                aggfunc='sum',
+                fill_value=0
+            )
+            
+            # Add total row and column
+            pivot.loc['Total'] = pivot.sum()
+            pivot['Total'] = pivot.sum(axis=1)
+            
+            # Write pivot table to Excel
+            pivot.to_excel(writer, sheet_name='Monthly Summary')
+            worksheet = writer.sheets['Monthly Summary']
+            
+            # Format pivot table
+            for col in range(len(pivot.columns) + 1):
+                for row in range(len(pivot.index) + 1):
+                    worksheet.write(row, col, None, money_format)
+            
+            # Write transactions to detail sheet
+            df.to_excel(writer, sheet_name='Transaction Details', index=False)
+            detail_sheet = writer.sheets['Transaction Details']
+            
+            # Format transaction details
+            for col_num, value in enumerate(df.columns.values):
+                detail_sheet.write(0, col_num, value, header_format)
+                if value == 'amount':
+                    detail_sheet.set_column(col_num, col_num, 12, money_format)
+                elif value == 'date':
+                    detail_sheet.set_column(col_num, col_num, 12, date_format)
+                else:
+                    detail_sheet.set_column(col_num, col_num, 20, border_format)
+            
+            # Add grouped transactions sheets if available
+            if grouped_transactions:
+                for section, groups in grouped_transactions.items():
+                    sheet_name = section.title()[:31]  # Excel sheet names limited to 31 chars
+                    
+                    # Create DataFrame for the section
+                    section_data = []
+                    for group in groups:
+                        section_data.append({
+                            'Description': group['description'],
+                            'Count': group['count'],
+                            'Total Amount': float(group['total_amount'].replace('$', '').replace(',', '')),
+                            'Average Amount': float(group['total_amount'].replace('$', '').replace(',', '')) / group['count']
+                        })
+                    
+                    if section_data:
+                        df_section = pd.DataFrame(section_data)
+                        df_section.to_excel(writer, sheet_name=sheet_name, index=False)
+                        section_sheet = writer.sheets[sheet_name]
+                        
+                        # Format section sheet
+                        for col_num, value in enumerate(df_section.columns.values):
+                            section_sheet.write(0, col_num, value, header_format)
+                            if 'Amount' in value:
+                                section_sheet.set_column(col_num, col_num, 15, money_format)
+                            elif value == 'Count':
+                                section_sheet.set_column(col_num, col_num, 8, border_format)
+                            else:
+                                section_sheet.set_column(col_num, col_num, 40, border_format)
+                        
+                        # Add transaction details below the summary
+                        row_offset = len(section_data) + 3
+                        section_sheet.write(row_offset, 0, "Transaction Details", header_format)
+                        
+                        # Write headers for transaction details
+                        headers = ['Date', 'Description', 'Amount']
+                        for col, header in enumerate(headers):
+                            section_sheet.write(row_offset + 1, col, header, header_format)
+                        
+                        # Write transaction details
+                        current_row = row_offset + 2
+                        for group in groups:
+                            for transaction in group['transactions']:
+                                date = pd.to_datetime(transaction['date'])
+                                section_sheet.write(current_row, 0, date, date_format)
+                                section_sheet.write(current_row, 1, transaction['description'], border_format)
+                                amount = float(transaction['amount'].replace('$', '').replace(',', ''))
+                                section_sheet.write(current_row, 2, amount, money_format)
+                                current_row += 1
+            
+            # Add receipt data if available
             if receipt_data:
-                self._create_receipts_sheet(workbook, receipt_data, formats)
+                # Create receipts sheet
+                sheet_name = 'Receipts'
+                receipt_rows = []
+                
+                # Prepare data for DataFrame
+                for receipt in receipt_data:
+                    # Add receipt header
+                    receipt_rows.append({
+                        'Date': receipt['date'],
+                        'Store': receipt['store_name'],
+                        'Type': 'Header',
+                        'Description': 'Receipt Total',
+                        'Amount': float(receipt['totals']['total'])
+                    })
+                    
+                    # Add receipt items
+                    for item in receipt['items']:
+                        receipt_rows.append({
+                            'Date': receipt['date'],
+                            'Store': receipt['store_name'],
+                            'Type': 'Item',
+                            'Description': item['name'],
+                            'Amount': float(item['amount']),
+                            'Quantity': float(item['quantity']),
+                            'Category': item.get('category', 'Uncategorized')
+                        })
+                
+                if receipt_rows:
+                    df_receipts = pd.DataFrame(receipt_rows)
+                    df_receipts.to_excel(writer, sheet_name=sheet_name, index=False)
+                    receipt_sheet = writer.sheets[sheet_name]
+                    
+                    # Format receipt sheet
+                    for col_num, value in enumerate(df_receipts.columns.values):
+                        receipt_sheet.write(0, col_num, value, header_format)
+                        if value in ['Amount']:
+                            receipt_sheet.set_column(col_num, col_num, 12, money_format)
+                        elif value == 'Date':
+                            receipt_sheet.set_column(col_num, col_num, 12, date_format)
+                        else:
+                            receipt_sheet.set_column(col_num, col_num, 20, border_format)
+                    
+                    # Add conditional formatting for header rows
+                    header_format_cond = workbook.add_format({
+                        'bold': True,
+                        'bg_color': '#E6F3FF',
+                        'border': 1
+                    })
+                    
+                    # Apply conditional formatting based on 'Type' column (column C)
+                    receipt_sheet.conditional_format(1, 0, len(df_receipts), len(df_receipts.columns)-1, {
+                        'type': 'formula',
+                        'criteria': '$C2="Header"',
+                        'format': header_format_cond
+                    })
             
-            workbook.close()
+            # Save the workbook
+            writer.close()
             
-            self.logger.info(f"Pivot Excel report created: {excel_path}")
-            
+            self.logger.info(f"Excel report created: {excel_path}")
             return excel_path
             
         except Exception as e:
-            self.logger.error(f"Error creating pivot Excel report: {e}")
+            self.logger.error(f"Error creating Excel report: {e}")
             return ""
-    
-    def _organize_pivot_data(self, transactions: List[Dict]) -> Dict:
-        """
-        Organize transactions into pivot structure: items vs months.
-        
-        Args:
-            transactions: List of classified transactions
-            
-        Returns:
-            Dictionary with organized pivot data
-        """
-        # Separate income and expense transactions
-        income_transactions = [t for t in transactions if t.get('transaction_type') == 'income']
-        expense_transactions = [t for t in transactions if t.get('transaction_type') == 'expense']
-        
-        # Get all unique months
-        all_months = set()
-        for transaction in transactions:
-            month_year = self._extract_month_year(transaction.get('date', ''))
-            if month_year:
-                all_months.add(month_year)
-        
-        sorted_months = sorted(list(all_months))
-        
-        # Organize income data by category and month
-        income_data = self._organize_by_category_and_month(income_transactions, sorted_months)
-        
-        # Organize expense data by category and month
-        expense_data = self._organize_by_category_and_month(expense_transactions, sorted_months)
-        
-        return {
-            'months': sorted_months,
-            'income_data': income_data,
-            'expense_data': expense_data,
-            'total_transactions': len(transactions),
-            'income_count': len(income_transactions),
-            'expense_count': len(expense_transactions)
-        }
-    
-    def _organize_by_category_and_month(self, transactions: List[Dict], months: List[str]) -> Dict:
-        """
-        Organize transactions by category and month.
-        
-        Args:
-            transactions: List of transactions (income or expense)
-            months: List of sorted month strings
-            
-        Returns:
-            Dictionary with category -> month -> amount mapping
-        """
-        category_month_data = defaultdict(lambda: defaultdict(float))
-        
-        for transaction in transactions:
-            category = transaction.get('category', 'Uncategorized')
-            month_year = self._extract_month_year(transaction.get('date', ''))
-            amount = abs(self._clean_amount(transaction.get('amount', 0)))  # Use absolute values
-            
-            if month_year:
-                category_month_data[category][month_year] += round(amount, 2)
-        
-        # Convert to regular dict and ensure all months are present
-        result = {}
-        for category in category_month_data:
-            result[category] = {}
-            total = 0
-            for month in months:
-                amount = category_month_data[category].get(month, 0)
-                result[category][month] = round(amount, 2)
-                total += amount
-            result[category]['total'] = round(total, 2)
-        
-        return result
-    
-    def _extract_month_year(self, date_str: str) -> str:
-        """Extract month-year from date string."""
-        if not date_str:
-            return None
-        
-        try:
-            # Handle Chase format MM/DD (assume current year)
-            if re.match(r'^\d{1,2}/\d{1,2}$', date_str):
-                date_str += '/2025'
-            
-            # Try various date formats
-            date_formats = [
-                '%m/%d/%Y',    # 01/15/2024
-                '%m-%d-%Y',    # 01-15-2024
-                '%Y-%m-%d',    # 2024-01-15
-                '%d/%m/%Y',    # 15/01/2024
-                '%d-%m-%Y',    # 15-01-2024
-                '%m/%d/%y',    # 01/15/24
-                '%m-%d-%y',    # 01-15-24
-            ]
-            
-            for fmt in date_formats:
-                try:
-                    parsed_date = datetime.strptime(date_str.strip(), fmt)
-                    return parsed_date.strftime('%Y-%m')  # Format: 2024-01
-                except ValueError:
-                    continue
-            
-            return None
-            
-        except Exception as e:
-            self.logger.warning(f"Could not parse date '{date_str}': {e}")
-            return None
-    
-    def _create_pivot_formats(self, workbook) -> Dict:
-        """Create all formatting styles for pivot layout."""
-        formats = {}
-        
-        # Title format
-        formats['title'] = workbook.add_format({
-            'bold': True,
-            'font_size': 16,
-            'bg_color': '#4472C4',
-            'font_color': 'white',
-            'align': 'center',
-            'valign': 'vcenter',
-            'border': 1
-        })
-        
-        # Section headers
-        formats['income_header'] = workbook.add_format({
-            'bold': True,
-            'font_size': 14,
-            'bg_color': '#70AD47',  # Green
-            'font_color': 'white',
-            'align': 'center',
-            'border': 1
-        })
-        
-        formats['expense_header'] = workbook.add_format({
-            'bold': True,
-            'font_size': 14,
-            'bg_color': '#C5504B',  # Red
-            'font_color': 'white',
-            'align': 'center',
-            'border': 1
-        })
-        
-        # Column headers
-        formats['column_header'] = workbook.add_format({
-            'bold': True,
-            'bg_color': '#D9E1F2',
-            'font_color': '#1F4E79',
-            'align': 'center',
-            'border': 1,
-            'text_wrap': True
-        })
-        
-        # Category labels
-        formats['income_category'] = workbook.add_format({
-            'bold': True,
-            'bg_color': '#E2EFDA',  # Light green
-            'font_color': '#0D5016',  # Dark green
-            'border': 1,
-            'align': 'left'
-        })
-        
-        formats['expense_category'] = workbook.add_format({
-            'bold': True,
-            'bg_color': '#FCE4D6',  # Light red
-            'font_color': '#C5504B',  # Dark red
-            'border': 1,
-            'align': 'left'
-        })
-        
-        # Amount formats
-        formats['income_amount'] = workbook.add_format({
-            'num_format': '$#,##0.00',
-            'bg_color': '#E2EFDA',  # Light green
-            'font_color': '#0D5016',  # Dark green
-            'border': 1,
-            'align': 'right'
-        })
-        
-        formats['expense_amount'] = workbook.add_format({
-            'num_format': '$#,##0.00',
-            'bg_color': '#FCE4D6',  # Light red
-            'font_color': '#C5504B',  # Dark red
-            'border': 1,
-            'align': 'right'
-        })
-        
-        # Total formats
-        formats['income_total'] = workbook.add_format({
-            'num_format': '$#,##0.00',
-            'bg_color': '#70AD47',  # Green
-            'font_color': 'white',
-            'border': 1,
-            'bold': True,
-            'align': 'right'
-        })
-        
-        formats['expense_total'] = workbook.add_format({
-            'num_format': '$#,##0.00',
-            'bg_color': '#C5504B',  # Red
-            'font_color': 'white',
-            'border': 1,
-            'bold': True,
-            'align': 'right'
-        })
-        
-        # Summary formats
-        formats['summary_label'] = workbook.add_format({
-            'bold': True,
-            'bg_color': '#4472C4',
-            'font_color': 'white',
-            'border': 1,
-            'align': 'left'
-        })
-        
-        formats['summary_amount'] = workbook.add_format({
-            'num_format': '$#,##0.00',
-            'bg_color': '#4472C4',
-            'font_color': 'white',
-            'border': 1,
-            'bold': True,
-            'align': 'right'
-        })
-        
-        return formats
-    
-    def _create_pivot_sheet(self, workbook, pivot_data: Dict, formats: Dict):
-        """Create the main pivot sheet."""
-        worksheet = workbook.add_worksheet('Financial Summary')
-        
-        months = pivot_data['months']
-        income_data = pivot_data['income_data']
-        expense_data = pivot_data['expense_data']
-        
-        # Calculate column positions
-        num_months = len(months)
-        total_cols = num_months + 2  # Category column + months + total column
-        
-        row = 0
-        
-        # Main title
-        worksheet.merge_range(row, 0, row, total_cols - 1, 
-                            'Bank Statement Financial Summary', formats['title'])
-        row += 2
-        
-        # Create month headers
-        month_headers = self._format_month_headers(months)
-        
-        # Column headers
-        worksheet.write(row, 0, 'Category / Item', formats['column_header'])
-        for col, month_header in enumerate(month_headers, 1):
-            worksheet.write(row, col, month_header, formats['column_header'])
-        worksheet.write(row, num_months + 1, 'Total', formats['column_header'])
-        row += 1
-        
-        # INCOME SECTION
-        worksheet.merge_range(row, 0, row, total_cols - 1, 
-                            '💰 INCOME', formats['income_header'])
-        row += 1
-        
-        # Income categories and data
-        income_total_by_month = [0] * num_months
-        income_grand_total = 0
-        
-        for category in sorted(income_data.keys()):
-            category_data = income_data[category]
-            
-            # Category name
-            worksheet.write(row, 0, category, formats['income_category'])
-            
-            # Monthly amounts
-            for col, month in enumerate(months, 1):
-                amount = category_data.get(month, 0)
-                if amount > 0:
-                    worksheet.write(row, col, round(amount, 2), formats['income_amount'])
-                    income_total_by_month[col - 1] += amount
-                else:
-                    worksheet.write(row, col, '', formats['income_amount'])
-            
-            # Category total
-            category_total = category_data.get('total', 0)
-            worksheet.write(row, num_months + 1, round(category_total, 2), formats['income_total'])
-            income_grand_total += category_total
-            
-            row += 1
-        
-        # Income totals row
-        worksheet.write(row, 0, 'TOTAL INCOME', formats['income_total'])
-        for col, monthly_total in enumerate(income_total_by_month, 1):
-            worksheet.write(row, col, round(monthly_total, 2), formats['income_total'])
-        worksheet.write(row, num_months + 1, round(income_grand_total, 2), formats['income_total'])
-        row += 1
-        
-        # 4 empty rows separator
-        for _ in range(4):
-            row += 1
-        
-        # EXPENSE SECTION
-        worksheet.merge_range(row, 0, row, total_cols - 1, 
-                            '💸 EXPENSES', formats['expense_header'])
-        row += 1
-        
-        # Expense categories and data
-        expense_total_by_month = [0] * num_months
-        expense_grand_total = 0
-        
-        for category in sorted(expense_data.keys()):
-            category_data = expense_data[category]
-            
-            # Category name
-            worksheet.write(row, 0, category, formats['expense_category'])
-            
-            # Monthly amounts
-            for col, month in enumerate(months, 1):
-                amount = category_data.get(month, 0)
-                if amount > 0:
-                    worksheet.write(row, col, round(amount, 2), formats['expense_amount'])
-                    expense_total_by_month[col - 1] += amount
-                else:
-                    worksheet.write(row, col, '', formats['expense_amount'])
-            
-            # Category total
-            category_total = category_data.get('total', 0)
-            worksheet.write(row, num_months + 1, round(category_total, 2), formats['expense_total'])
-            expense_grand_total += category_total
-            
-            row += 1
-        
-        # Expense totals row
-        worksheet.write(row, 0, 'TOTAL EXPENSES', formats['expense_total'])
-        for col, monthly_total in enumerate(expense_total_by_month, 1):
-            worksheet.write(row, col, round(monthly_total, 2), formats['expense_total'])
-        worksheet.write(row, num_months + 1, round(expense_grand_total, 2), formats['expense_total'])
-        row += 2
-        
-        # NET AMOUNT SUMMARY
-        worksheet.write(row, 0, 'NET AMOUNT', formats['summary_label'])
-        for col in range(1, num_months + 1):
-            net_amount = income_total_by_month[col - 1] - expense_total_by_month[col - 1]
-            worksheet.write(row, col, round(net_amount, 2), formats['summary_amount'])
-        
-        net_total = income_grand_total - expense_grand_total
-        worksheet.write(row, num_months + 1, round(net_total, 2), formats['summary_amount'])
-        
-        # Auto-adjust column widths
-        worksheet.set_column(0, 0, 25)  # Category column
-        for col in range(1, num_months + 1):  # Month columns
-            worksheet.set_column(col, col, 12)
-        worksheet.set_column(num_months + 1, num_months + 1, 15)  # Total column
-        
-        # Add summary statistics at the bottom
-        row += 3
-        stats_data = [
-            ('Total Income Categories', len(income_data)),
-            ('Total Expense Categories', len(expense_data)),
-            ('Total Transactions Processed', pivot_data['total_transactions']),
-            ('Analysis Period', f"{len(months)} months")
-        ]
-        
-        for label, value in stats_data:
-            worksheet.write(row, 0, label, formats['column_header'])
-            worksheet.write(row, 1, value, formats['column_header'])
-            row += 1
-    
-    def _create_receipts_sheet(self, workbook, receipt_data: List[Dict], formats: Dict):
-        """Create a sheet for receipt details."""
-        worksheet = workbook.add_worksheet('Receipts')
-        
-        # Set column widths
-        worksheet.set_column(0, 0, 15)  # Date
-        worksheet.set_column(1, 1, 25)  # Store
-        worksheet.set_column(2, 2, 35)  # Item
-        worksheet.set_column(3, 3, 15)  # Category
-        worksheet.set_column(4, 4, 10)  # Quantity
-        worksheet.set_column(5, 5, 12)  # Amount
-        worksheet.set_column(6, 6, 15)  # Receipt Total
-        
-        # Write headers
-        headers = ['Date', 'Store', 'Item', 'Category', 'Quantity', 'Amount', 'Receipt Total']
-        for col, header in enumerate(headers):
-            worksheet.write(0, col, header, formats['column_header'])
-        
-        # Write receipt data
-        row = 1
-        for receipt in receipt_data:
-            receipt_date = receipt.get('date', '')
-            store_name = receipt.get('store_name', '')
-            total_amount = receipt.get('totals', {}).get('total', 0)
-            
-            # Write each item from the receipt
-            for item in receipt.get('items', []):
-                worksheet.write(row, 0, receipt_date)  # Date
-                worksheet.write(row, 1, store_name)    # Store
-                worksheet.write(row, 2, item.get('name', ''))  # Item
-                worksheet.write(row, 3, item.get('category', 'Uncategorized'))  # Category
-                worksheet.write(row, 4, float(item.get('quantity', 1)))  # Quantity
-                worksheet.write(row, 5, float(item.get('amount', 0)))  # Amount
-                worksheet.write(row, 6, float(total_amount))  # Receipt Total
-                row += 1
-        
-        # Add totals row
-        total_row = row
-        worksheet.write(total_row, 0, 'TOTAL', formats['summary_label'])
-        worksheet.write_formula(total_row, 5, f'=SUM(F2:F{row})', formats['summary_amount'])
-        
-        # Add autofilter
-        worksheet.autofilter(0, 0, row - 1, len(headers) - 1)
-        
-        # Add conditional formatting for categories
-        categories = {
-            'Groceries': '#4CAF50',
-            'Food': '#FF9800',
-            'Shopping': '#2196F3',
-            'Health': '#F44336',
-            'Transportation': '#9C27B0'
-        }
-        
-        for category, color in categories.items():
-            worksheet.conditional_format(1, 3, row - 1, 3, {
-                'type': 'text',
-                'criteria': 'containing',
-                'value': category,
-                'format': workbook.add_format({
-                    'font_color': color,
-                    'bold': True
-                })
-            })
-
-    def _format_month_headers(self, months: List[str]) -> List[str]:
-        """Format month-year strings for column headers."""
-        formatted_headers = []
-        
-        for month_year in months:
-            try:
-                year, month = month_year.split('-')
-                month_names = [
-                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                ]
-                month_name = month_names[int(month) - 1]
-                formatted_headers.append(f"{month_name} {year}")
-            except:
-                formatted_headers.append(month_year)
-        
-        return formatted_headers
-    
-    def get_chart_data(self, transactions: List[Dict]) -> Dict:
-        """
-        Get data formatted for Chart.js line graphs.
-        
-        Args:
-            transactions: List of classified transactions
-            
-        Returns:
-            Dictionary with data formatted for Chart.js
-        """
-        if not transactions:
-            return {}
-
-        # Classify transactions
-        classified_transactions = self.income_expense_analyzer.classify_transactions(transactions)
-        pivot_data = self._organize_pivot_data(classified_transactions)
-        
-        if not pivot_data or not pivot_data.get('months'):
-            return {}
-        
-        # Format months for display (e.g., "Jan 2024")
-        formatted_months = self._format_month_headers(pivot_data['months'])
-        
-        result = {}
-        
-        # Format expense data if there are any expenses
-        if pivot_data.get('expense_data'):
-            expense_categories = []
-            for category in sorted(pivot_data['expense_data'].keys()):
-                category_data = pivot_data['expense_data'][category]
-                values = []
-                total = 0
-                for month in pivot_data['months']:
-                    amount = category_data.get(month, 0)
-                    values.append(amount)
-                    total += amount
-                if total > 0:  # Only include categories with non-zero totals
-                    expense_categories.append({
-                        'name': category,
-                        'values': values
-                    })
-            if expense_categories:  # Only include expenses if there are valid categories
-                result['expenses'] = {
-                    'months': formatted_months,
-                    'categories': expense_categories
-                }
-        
-        # Format income data if there are any incomes
-        if pivot_data.get('income_data'):
-            income_sources = []
-            for category in sorted(pivot_data['income_data'].keys()):
-                category_data = pivot_data['income_data'][category]
-                values = []
-                total = 0
-                for month in pivot_data['months']:
-                    amount = category_data.get(month, 0)
-                    values.append(amount)
-                    total += amount
-                if total > 0:  # Only include categories with non-zero totals
-                    income_sources.append({
-                        'name': category,
-                        'values': values
-                    })
-            if income_sources:  # Only include income if there are valid sources
-                result['income'] = {
-                    'months': formatted_months,
-                    'sources': income_sources
-                }
-        
-        return result
-
-    def _clean_amount(self, amount_str) -> float:
-        """Convert amount string to float."""
-        try:
-            if isinstance(amount_str, (int, float)):
-                return float(amount_str)
-            
-            # Remove currency symbols and commas
-            cleaned = str(amount_str).replace('$', '').replace(',', '').strip()
-            
-            # Handle parentheses for negative amounts
-            if cleaned.startswith('(') and cleaned.endswith(')'):
-                cleaned = '-' + cleaned[1:-1]
-            
-            # Handle + prefix
-            if cleaned.startswith('+'):
-                cleaned = cleaned[1:]
-            
-            return float(cleaned)
-        except (ValueError, AttributeError):
-            return 0.0
