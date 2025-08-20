@@ -17,6 +17,103 @@ class PivotMonthlyReportGenerator:
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
     
+    def get_chart_data(self, transactions: List[Dict]) -> Dict:
+        """
+        Get data for expense and income charts.
+        
+        Args:
+            transactions: List of categorized transactions
+            
+        Returns:
+            Dictionary with chart data for expenses and income
+        """
+        try:
+            # Convert to DataFrame for easier analysis
+            df = pd.DataFrame(transactions)
+            
+            # Clean amount column
+            df['amount'] = pd.to_numeric(df['amount'].str.replace('$', '').str.replace(',', ''), errors='coerce')
+            
+            # Convert dates
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            
+            # Separate expenses and income
+            expenses_df = df[df['amount'] < 0].copy()
+            income_df = df[df['amount'] > 0].copy()
+            
+            # Group by month and category
+            expenses_by_month = expenses_df.groupby([
+                pd.Grouper(key='date', freq='M'),
+                'category'
+            ])['amount'].sum().abs()  # Use abs() to make expenses positive
+            
+            income_by_month = income_df.groupby([
+                pd.Grouper(key='date', freq='M'),
+                'category'
+            ])['amount'].sum()
+            
+            # Prepare data for charts
+            chart_data = {
+                'expenses': {
+                    'months': [],
+                    'categories': []
+                },
+                'income': {
+                    'months': [],
+                    'sources': []
+                }
+            }
+            
+            # Process expenses
+            if not expenses_by_month.empty:
+                months = sorted(expenses_by_month.index.get_level_values(0).unique())
+                categories = sorted(expenses_by_month.index.get_level_values(1).unique())
+                
+                # Convert expenses data to chart format
+                expenses_data = []
+                for category in categories:
+                    values = []
+                    for month in months:
+                        try:
+                            amount = expenses_by_month.loc[(month, category)]
+                            values.append(float(amount))
+                        except KeyError:
+                            values.append(0)
+                    expenses_data.append({'name': category, 'values': values})
+                
+                chart_data['expenses'] = {
+                    'months': [m.strftime('%Y-%m') for m in months],
+                    'categories': expenses_data
+                }
+            
+            # Process income
+            if not income_by_month.empty:
+                months = sorted(income_by_month.index.get_level_values(0).unique())
+                categories = sorted(income_by_month.index.get_level_values(1).unique())
+                
+                # Convert income data to chart format
+                income_data = []
+                for category in categories:
+                    values = []
+                    for month in months:
+                        try:
+                            amount = income_by_month.loc[(month, category)]
+                            values.append(float(amount))
+                        except KeyError:
+                            values.append(0)
+                    income_data.append({'name': category, 'values': values})
+                
+                chart_data['income'] = {
+                    'months': [m.strftime('%Y-%m') for m in months],
+                    'sources': income_data
+                }
+            
+            return chart_data
+            
+        except Exception as e:
+            self.logger.error(f"Error generating chart data: {e}")
+            return {'expenses': {'months': [], 'categories': []}, 'income': {'months': [], 'sources': []}}
+    
     def create_pivot_excel_report(self, transactions: List[Dict], grouped_transactions: Dict[str, List[Dict]] = None, receipt_data: List[Dict] = None) -> str:
         """
         Create an Excel report with pivot-style summaries and grouped transactions.
